@@ -168,8 +168,8 @@
       "id": "pillar-slot-t0rl2l",
       "kind": "pillar-slot",
       "pos": {
-        "x": 0.4197,
-        "y": 0.1253
+        "x": 0.424,
+        "y": 0.1151
       },
       "label": "Pilar 10",
       "confirmed": false,
@@ -209,21 +209,11 @@
       "tier": "A"
     },
     {
-      "id": "pillar-slot-mll4x6",
-      "kind": "pillar-slot",
-      "pos": {
-        "x": 0.4546,
-        "y": 0.0938
-      },
-      "label": "Pilar 14",
-      "confirmed": false
-    },
-    {
       "id": "pillar-slot-fynje7",
       "kind": "pillar-slot",
       "pos": {
-        "x": 0.617,
-        "y": 0.9332
+        "x": 0.619,
+        "y": 0.9315
       },
       "label": "Pilar 15",
       "confirmed": false,
