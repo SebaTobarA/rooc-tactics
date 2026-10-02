@@ -4,10 +4,12 @@ import { modeById } from '../../config/modes/index.ts';
 import { roleById, roles } from '../../config/roles.ts';
 import { PARTY_MIME, PLAYER_MIME } from '../board/dnd.ts';
 import { button, heading, input } from '../board/ui.ts';
+import { useMapStore } from '../../store/mapStore.ts';
 import { useStrategyStore } from '../../store/strategyStore.ts';
+import { useUiStore } from '../../store/uiStore.ts';
 import type { Party, Player, RoleId } from '../../types/index.ts';
 import {
-  addParty, addPlayer, applyTemplate, assignPlayer, deleteTemplate, importPlayers, listTemplates, partyOf, patchPlayer,
+  addJobToParty, addParty, addPlayer, applyTemplate, assignPlayer, deleteTemplate, importPlayers, listTemplates, partyOf, patchPlayer, placePartyAtSpawn,
   removeParty, removePlayer, renameParty, saveTemplate, summarize, unassignPlayer, type ImportResult,
 } from './partyActions.ts';
 
@@ -53,6 +55,9 @@ function PartyCard({ party, roster, onError }: { party: Party; roster: Player[];
   const checkpoint = useStrategyStore((s) => s.checkpoint);
   const [templates, setTemplates] = useState(listTemplates);
   const summary = summarize(party, roster);
+  const allySide = useStrategyStore((st) => st.strategy.allySide);
+  const respawn = useMapStore((st) => st.map.markers.find((m) => m.kind === 'respawn' && m.side === allySide)?.pos);
+  const { setSelection, setTool } = useUiStore();
   const drop = (slot?: number) => (e: DragEvent) => {
     const id = e.dataTransfer.getData(PLAYER_MIME);
     if (!id) return;
@@ -82,10 +87,34 @@ function PartyCard({ party, roster, onError }: { party: Party; roster: Player[];
           const player = roster.find((p) => p.id === id);
           return (
             <div key={i} onDragOver={allowPlayer} onDrop={drop(i)}>
-              {player ? <PlayerRow player={player} /> : <div className="rounded-md border border-dashed border-slate-300 px-2 py-1.5 text-xs text-slate-500 dark:border-slate-700">Slot {i + 1} · vacío</div>}
+              {player ? (
+                <PlayerRow player={player} />
+              ) : (
+                <select className={`${input} border-dashed text-xs text-slate-500`} value="" aria-label={`Agregar job al slot ${i + 1}`} onChange={(e) => e.target.value && onError(addJobToParty(party.id, i, e.target.value))}>
+                  <option value="">Slot {i + 1} · vacío — elegir job…</option>
+                  {jobs.map((j) => <option key={j.id} value={j.id}>{j.name}</option>)}
+                </select>
+              )}
             </div>
           );
         })}
+      </div>
+
+      <div className="mt-2 grid grid-cols-2 gap-1">
+        <div
+          draggable={summary.size > 0}
+          onDragStart={(e) => { e.dataTransfer.setData(PARTY_MIME, party.id); e.dataTransfer.effectAllowed = 'copy'; }}
+          title="Arrastra al mapa para colocar la party completa donde la sueltes"
+          className={`rounded border border-dashed px-2 py-1 text-center text-xs ${summary.size ? 'cursor-grab border-sky-500 text-sky-600 dark:text-sky-300' : 'border-slate-400 text-slate-500 opacity-60'}`}
+        >
+          ⠿ Arrastrar al mapa
+        </div>
+        <button className={`${button} text-xs`} disabled={!summary.size} title="Coloca la party junto al respawn de mi guild" onClick={() => {
+          const ids = placePartyAtSpawn(party.id, respawn);
+          if (ids.length) { setTool('select'); setSelection(ids); }
+        }}>
+          Colocar en el mapa
+        </button>
       </div>
 
       <div className="mt-2 flex flex-wrap gap-1 text-xs">
@@ -132,7 +161,7 @@ export function PartiesPanel() {
     <div className="space-y-3 p-3">
       {error && <p className="rounded bg-red-500/20 px-2 py-1 text-sm text-red-600 dark:text-red-300" role="alert">{error}</p>}
       <p className="text-xs text-slate-500">
-        Arrastra jugadores entre la banca, los slots y el mapa. Arrastra el número de una party al mapa para colocar sus tokens agrupados.
+        Elige un job en cada slot (o arrastra jugadores desde la banca). Luego usa «Arrastrar al mapa» o «Colocar en el mapa» para poner los tokens de la party agrupados.
         Máximo {mode?.partySize ?? 5} por party{mode?.maxSameJobPerTeam ? ` y ${mode.maxSameJobPerTeam} del mismo job por equipo` : ''}.
       </p>
 

@@ -38,6 +38,7 @@ export function BoardPage({ mapId }: { mapId: string }) {
   const setEditorActive = useEditorStore((s) => s.setActive);
   const viewMode = useUiStore((s) => s.viewMode);
   const setViewMode = useUiStore((s) => s.setViewMode);
+  const notice = useUiStore((s) => s.notice);
   // El editor de mapa trabaja siempre en 2D.
   const show3d = viewMode === '3d' && !editorActive;
   const [shareOpen, setShareOpen] = useState(false);
@@ -98,6 +99,9 @@ export function BoardPage({ mapId }: { mapId: string }) {
             <BoardStage />
           )}
           {!editorActive && <Legend />}
+          {notice && (
+            <p className="absolute left-1/2 top-24 z-10 max-w-md -translate-x-1/2 rounded-md bg-amber-500 px-3 py-2 text-center text-sm font-medium text-slate-950 shadow-lg" role="status">{notice}</p>
+          )}
         </div>
         {editorActive ? <EditorPanel /> : <RightPanel />}
       </div>

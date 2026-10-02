@@ -4,6 +4,7 @@ import { roles } from '../../config/roles.ts';
 import { clamp01, round4 } from '../../lib/geometry.ts';
 import { newId } from '../../lib/id.ts';
 import { emptyParty, useStrategyStore } from '../../store/strategyStore.ts';
+import { useUiStore } from '../../store/uiStore.ts';
 import type { Party, Player, RoleId, Strategy, Token, Vec2 } from '../../types/index.ts';
 
 const store = () => useStrategyStore.getState();
@@ -153,6 +154,26 @@ export function assignPlayer(playerId: string, partyId: string, slot?: number): 
   return null;
 }
 
+/** Crea un jugador de relleno con ese job directamente en un slot libre, sin pasar por la banca. */
+export function addJobToParty(partyId: string, slot: number, jobId: string): string | null {
+  const s = store().strategy;
+  const mode = modeById(s.modeId);
+  const party = s.parties.find((p) => p.id === partyId);
+  const job = jobById(jobId);
+  if (!party || !job || party.slots[slot]) return 'Ese slot no está libre.';
+  if (mode?.maxSameJobPerTeam) {
+    const same = s.parties.flatMap((p) => p.slots).filter((id) => id && s.roster.find((p) => p.id === id)?.jobId === jobId).length;
+    if (same >= mode.maxSameJobPerTeam) return `${mode.name}: máximo ${mode.maxSameJobPerTeam} jugadores del mismo job por equipo.`;
+  }
+  const player: Player = { id: newId('player'), name: `${job.abbr} ${party.number}.${slot + 1}`, jobId, role: job.role };
+  change((st) => ({
+    ...st,
+    roster: [...st.roster, player],
+    parties: st.parties.map((p) => (p.id === partyId ? { ...p, slots: p.slots.map((x, i) => (i === slot ? player.id : x)) } : p)),
+  }));
+  return null;
+}
+
 export function unassignPlayer(playerId: string): void {
   change((s) => ({ ...s, parties: s.parties.map((p) => ({ ...p, slots: p.slots.map((x) => (x === playerId ? null : x)) })) }));
 }
@@ -188,8 +209,22 @@ export function placePlayers(playerIds: string[], pos: Vec2): string[] {
   return ids;
 }
 
-export const placeParty = (partyId: string, pos: Vec2): string[] =>
-  placePlayers((store().strategy.parties.find((p) => p.id === partyId)?.slots ?? []).filter((x): x is string => !!x), pos);
+export function placeParty(partyId: string, pos: Vec2): string[] {
+  const party = store().strategy.parties.find((p) => p.id === partyId);
+  const members = (party?.slots ?? []).filter((x): x is string => !!x);
+  if (party && !members.length) useUiStore.getState().notify(`${party.name} está vacía: agrégale jobs o jugadores en la pestaña Partys antes de llevarla al mapa.`);
+  return placePlayers(members, pos);
+}
+
+/** Coloca la party cerca del primer respawn de mi guild (o al centro), separando las partys entre sí. */
+export function placePartyAtSpawn(partyId: string, respawn: Vec2 | undefined): string[] {
+  const parties = store().strategy.parties;
+  const index = Math.max(0, parties.findIndex((p) => p.id === partyId));
+  const base = respawn ?? { x: 0.5, y: 0.5 };
+  // Hacia el centro del mapa y en abanico, para no pisar el respawn ni a las otras partys.
+  const toward = { x: Math.sign(0.5 - base.x) || 1, y: Math.sign(0.5 - base.y) || 1 };
+  return placeParty(partyId, { x: base.x + toward.x * (0.05 + (index % 3) * 0.075), y: base.y + toward.y * (0.09 + Math.floor(index / 3) * 0.13) });
+}
 
 // ---------- Resumen y plantillas ----------
 
