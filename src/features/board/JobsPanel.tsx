@@ -2,7 +2,7 @@ import { baseClasses, jobs } from '../../config/jobs.ts';
 import { roleById } from '../../config/roles.ts';
 import { addToken } from '../../store/boardActions.ts';
 import { useUiStore } from '../../store/uiStore.ts';
-import { JOB_MIME } from './BoardStage.tsx';
+import { JOB_MIME } from './dnd.ts';
 import { active, button, heading } from './ui.ts';
 
 /** Paleta de jobs: se arrastran al mapa para crear tokens. */

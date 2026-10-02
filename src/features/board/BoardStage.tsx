@@ -16,6 +16,7 @@ import { addMarker, addPlaza, addPolygon } from '../map-editor/geometryOps.ts';
 import { MapShapes } from '../map-render/konva/MapShapes.tsx';
 import { Markers } from '../map-render/konva/Markers.tsx';
 import { NumpadGrid } from '../map-render/konva/NumpadGrid.tsx';
+import { JOB_MIME } from './dnd.ts';
 import { Drawings, DrawingShape } from './konva/Drawings.tsx';
 import { Tokens } from './konva/Tokens.tsx';
 import { stageHandle } from './stageHandle.ts';
@@ -23,7 +24,6 @@ import { isDrawingTool, useToolController } from './useToolController.ts';
 
 const MIN_SCALE = 0.2;
 const MAX_SCALE = 8;
-export const JOB_MIME = 'application/x-rooc-job';
 const isTyping = (e: KeyboardEvent) => e.target instanceof HTMLElement && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
 
 /** Lienzo 2D: mapa propio, grilla, marcadores, tokens y dibujos, con zoom y desplazamiento. */

@@ -43,3 +43,31 @@ export function fitView(proj: Projection, width: number, height: number, margin 
   const scale = Math.max(0.05, Math.min((width - margin * 2) / proj.w, (height - margin * 2) / proj.h));
   return { scale, x: (width - proj.w * scale) / 2, y: (height - proj.h * scale) / 2 };
 }
+
+// ---------- Vista 2.5D ----------
+
+/** Ancho del mapa en unidades de mundo 3D. El suelo es el plano XZ, con Y hacia arriba. */
+export const WORLD3_W = 100;
+
+export interface Projection3 {
+  w: number;
+  d: number;
+  /** Normalizado (0–1) → [x, z] sobre el suelo. */
+  toGround(p: Vec2): [number, number];
+  /** Punto del suelo → normalizado (0–1). */
+  toNorm(x: number, z: number): Vec2;
+  /** Longitud normalizada (en unidades del ancho del mapa) → mundo 3D. */
+  len(n: number): number;
+}
+
+export function makeProjection3(aspect: number): Projection3 {
+  const w = WORLD3_W;
+  const d = WORLD3_W / aspect;
+  return {
+    w,
+    d,
+    toGround: (p) => [(p.x - 0.5) * w, (p.y - 0.5) * d],
+    toNorm: (x, z) => ({ x: x / w + 0.5, y: z / d + 0.5 }),
+    len: (n) => n * w,
+  };
+}

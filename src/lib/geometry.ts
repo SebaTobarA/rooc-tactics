@@ -36,3 +36,17 @@ export function nearestEdge(p: Vec2, rings: Vec2[][], to: (v: Vec2) => Vec2): { 
   });
   return best;
 }
+
+export function pointInRing(p: Vec2, ring: Vec2[]): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const a = ring[i];
+    const b = ring[j];
+    if (a.y > p.y !== b.y > p.y && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+  }
+  return inside;
+}
+
+/** Punto dentro de un polígono con agujeros. */
+export const pointInPolygon = (p: Vec2, poly: { points: Vec2[]; holes?: Vec2[][] }): boolean =>
+  pointInRing(p, poly.points) && !(poly.holes ?? []).some((h) => pointInRing(p, h));
