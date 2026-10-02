@@ -9,10 +9,16 @@ import { pointInPolygon } from './geometry.ts';
 
 const COLS = 176;
 
+/** Celdas de holgura respecto del bosque: las rutas pasan por el centro de los senderos, no pegadas al borde. */
+const CLEARANCE = 3;
+
 interface Grid {
   cols: number;
   rows: number;
+  /** 1 = transitable. */
   cells: Uint8Array;
+  /** 1 = transitable y a más de CLEARANCE celdas del bosque. */
+  clear: Uint8Array;
 }
 
 const grids = new WeakMap<MapGeometry, Grid>();
@@ -28,7 +34,21 @@ function gridOf(g: MapGeometry, aspect: number): Grid {
   const rows = Math.max(1, Math.round(COLS / aspect));
   const cells = new Uint8Array(cols * rows);
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) cells[r * cols + c] = isWalkable({ x: (c + 0.5) / cols, y: (r + 0.5) / rows }, g) ? 1 : 0;
-  grid = { cols, rows, cells };
+  const clear = new Uint8Array(cols * rows);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      let ok = cells[r * cols + c] === 1;
+      for (let dr = -CLEARANCE; ok && dr <= CLEARANCE; dr++) {
+        for (let dc = -CLEARANCE; ok && dc <= CLEARANCE; dc++) {
+          const nr = r + dr;
+          const nc = c + dc;
+          if (dr * dr + dc * dc <= CLEARANCE * CLEARANCE && (nr < 0 || nc < 0 || nr >= rows || nc >= cols || !cells[nr * cols + nc])) ok = false;
+        }
+      }
+      clear[r * cols + c] = ok ? 1 : 0;
+    }
+  }
+  grid = { cols, rows, cells, clear };
   grids.set(g, grid);
   return grid;
 }
@@ -65,7 +85,12 @@ export function snapToWalkable(p: Vec2, g: MapGeometry, aspect: number): Vec2 {
     if (isWalkable({ x: inside.x + (p.x - inside.x) * mid, y: inside.y + (p.y - inside.y) * mid }, g)) lo = mid;
     else hi = mid;
   }
-  return round({ x: inside.x + (p.x - inside.x) * lo, y: inside.y + (p.y - inside.y) * lo });
+  // Un poco hacia adentro del borde, y verificado después de redondear: el resultado siempre es transitable.
+  for (const k of [lo * 0.92, lo * 0.7, 0]) {
+    const q = round({ x: inside.x + (p.x - inside.x) * k, y: inside.y + (p.y - inside.y) * k });
+    if (isWalkable(q, g)) return q;
+  }
+  return inside;
 }
 
 /** ¿El tramo recto entre dos puntos va completo por terreno transitable? */
@@ -79,9 +104,29 @@ export function segmentWalkable(a: Vec2, b: Vec2, g: MapGeometry, aspect: number
   return true;
 }
 
+/**
+ * Tramo recto apto para una ruta: transitable y, salvo cerca de los extremos de la ruta
+ * (donde la ficha puede estar junto al borde), con holgura respecto del bosque.
+ */
+function segmentClear(a: Vec2, b: Vec2, ends: [Vec2, Vec2], g: MapGeometry, aspect: number): boolean {
+  const grid = gridOf(g, aspect);
+  const steps = Math.max(2, Math.ceil(Math.hypot(b.x - a.x, (b.y - a.y) / aspect) * grid.cols * 2.5));
+  const free = (CLEARANCE + 2) / grid.cols;
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const p = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+    if (!isWalkable(p, g)) return false;
+    const { c, r } = cellOf(p, grid);
+    if (grid.clear[r * grid.cols + c]) continue;
+    const nearEnd = ends.some((e) => Math.hypot(e.x - p.x, (e.y - p.y) / aspect) < free);
+    if (!nearEnd) return false;
+  }
+  return true;
+}
+
 /** A* sobre la grilla (8 vecinos, sin cortar esquinas). Devuelve índices de celda o null si no hay camino. */
 function astar(start: number, goal: number, grid: Grid): number[] | null {
-  const { cols, rows, cells } = grid;
+  const { cols, rows, cells, clear } = grid;
   const n = cells.length;
   const gScore = new Float32Array(n).fill(Infinity);
   const from = new Int32Array(n).fill(-1);
@@ -143,7 +188,8 @@ function astar(start: number, goal: number, grid: Grid): number[] | null {
         const next = nr * cols + nc;
         if (!cells[next] || closed[next]) continue;
         if (dr && dc && (!cells[r * cols + nc] || !cells[nr * cols + c])) continue;
-        const cost = gScore[cur] + (dr && dc ? Math.SQRT2 : 1);
+        // Las celdas pegadas al bosque cuestan más: la ruta prefiere el centro del sendero, pero puede cruzar pasos angostos.
+        const cost = gScore[cur] + (dr && dc ? Math.SQRT2 : 1) * (clear[next] ? 1 : 6);
         if (cost < gScore[next]) {
           gScore[next] = cost;
           from[next] = cur;
@@ -170,7 +216,8 @@ export function route(a: Vec2, b: Vec2, g: MapGeometry, aspect: number): Vec2[] 
   const start = snapToWalkable(a, g, aspect);
   const end = snapToWalkable(b, g, aspect);
   let result: Vec2[] = [start, end];
-  if (!segmentWalkable(start, end, g, aspect)) {
+  const ends: [Vec2, Vec2] = [start, end];
+  if (!segmentClear(start, end, ends, g, aspect)) {
     const grid = gridOf(g, aspect);
     const nearestCell = (p: Vec2) => {
       const { c, r } = cellOf(p, grid);
@@ -186,9 +233,19 @@ export function route(a: Vec2, b: Vec2, g: MapGeometry, aspect: number): Vec2[] 
       let i = 0;
       while (i < pts.length - 1) {
         let j = pts.length - 1;
-        while (j > i + 1 && !segmentWalkable(pts[i], pts[j], g, aspect)) j--;
+        while (j > i + 1 && !segmentClear(pts[i], pts[j], ends, g, aspect)) j--;
         smooth.push(pts[j]);
         i = j;
+      }
+      // En pasos angostos queda la escalera de la grilla: se quitan los puntos casi alineados si el tramo sigue siendo transitable.
+      const tol = 1.3 / grid.cols;
+      for (let k = 1; k < smooth.length - 1; ) {
+        const [p0, p1, p2] = [smooth[k - 1], smooth[k], smooth[k + 1]];
+        const dx = p2.x - p0.x;
+        const dy = (p2.y - p0.y) / aspect;
+        const dev = Math.abs(dx * ((p1.y - p0.y) / aspect) - dy * (p1.x - p0.x)) / (Math.hypot(dx, dy) || 1);
+        if (dev < tol && segmentWalkable(p0, p2, g, aspect)) smooth.splice(k, 1);
+        else k++;
       }
       result = smooth.map(round);
     }
