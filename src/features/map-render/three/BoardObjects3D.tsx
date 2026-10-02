@@ -82,12 +82,12 @@ function Pillar({ marker, objective, x, z }: { marker: Marker; objective?: Objec
   );
 }
 
-export const Markers3D = memo(function Markers3D({ map, proj, objectives }: { map: MapConfig; proj: Projection3; objectives: ObjectiveState[] }) {
+export const Markers3D = memo(function Markers3D({ map, proj, objectives, labelHeight = 1.2 }: { map: MapConfig; proj: Projection3; objectives: ObjectiveState[]; labelHeight?: number }) {
   return (
     <group>
       {map.markers.map((m) => {
         const [x, z] = proj.toGround(m.pos);
-        const label = <Label text={`${m.label}${m.confirmed ? '' : ' (?)'} · Z${zoneOf(m.pos, map.numpad)}`} position={[x, 0.3, z + 3]} height={1.2} />;
+        const label = <Label text={`${m.label}${m.confirmed ? '' : ' (?)'} · Z${zoneOf(m.pos, map.numpad)}`} position={[x, 0.3, z + 3]} height={labelHeight} />;
         if (m.kind === 'central-pillar' || m.kind === 'pillar-slot') {
           return <group key={m.id}><Pillar marker={m} objective={objectives.find((o) => o.markerId === m.id)} x={x} z={z} />{label}</group>;
         }
