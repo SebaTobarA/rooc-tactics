@@ -1,3 +1,4 @@
+import type { Overrides } from '../../store/scoringStore.ts';
 import type { ModeScoring, Side, TierId } from '../../types/index.ts';
 
 export interface GuildInput {
@@ -11,13 +12,6 @@ export interface GuildInput {
 }
 
 export type ScoreInput = Record<Side, GuildInput>;
-
-/** Valores provisionales que solo se usan donde la config todavía dice TODO (null). */
-export interface Overrides {
-  destroy: Record<TierId, number | null>;
-  capture: Record<TierId, number | null>;
-  tickSeconds: number | null;
-}
 
 export interface GuildScore {
   destroy: number;

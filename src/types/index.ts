@@ -80,6 +80,8 @@ export interface Marker {
   pos: Vec2;
   label: string;
   side?: Side;
+  /** Tier del pilar en esta ubicación (solo pilares). */
+  tier?: TierId;
   /** false = nombre/función "por confirmar". */
   confirmed: boolean;
 }

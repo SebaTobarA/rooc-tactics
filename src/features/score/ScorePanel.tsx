@@ -4,7 +4,8 @@ import { useStrategyStore } from '../../store/strategyStore.ts';
 import type { Side } from '../../types/index.ts';
 import { button, heading, input } from '../board/ui.ts';
 import { SIDE_COLORS } from '../map-render/konva/Markers.tsx';
-import { emptyGuild, resolve, scoreGuild, type GuildInput, type Overrides, type ScoreInput } from './scoreMath.ts';
+import { useScoringStore } from '../../store/scoringStore.ts';
+import { emptyGuild, resolve, scoreGuild, type GuildInput, type ScoreInput } from './scoreMath.ts';
 
 const SIDES: { id: Side; name: string }[] = [{ id: 'green', name: 'Guild Verde' }, { id: 'red', name: 'Guild Roja' }];
 const KEY = 'rooc-tactics:score';
@@ -23,17 +24,17 @@ export function ScorePanel() {
   const scoring = modeById(modeId)?.scoring;
   const saved = useMemo(() => {
     try {
-      return JSON.parse(localStorage.getItem(KEY) ?? 'null') as { input: ScoreInput; overrides: Overrides } | null;
+      return JSON.parse(localStorage.getItem(KEY) ?? 'null') as { input: ScoreInput } | null;
     } catch {
       return null;
     }
   }, []);
   const [data, setData] = useState<ScoreInput | null>(saved?.input ?? null);
-  const [overrides, setOverrides] = useState<Overrides>(saved?.overrides ?? { destroy: {}, capture: {}, tickSeconds: null });
+  const { overrides, setOverrides } = useScoringStore();
   const scoreInput = data ?? (scoring ? { green: emptyGuild(scoring), red: emptyGuild(scoring) } : null);
   useEffect(() => {
-    if (scoreInput) localStorage.setItem(KEY, JSON.stringify({ input: scoreInput, overrides }));
-  }, [scoreInput, overrides]);
+    if (scoreInput) localStorage.setItem(KEY, JSON.stringify({ input: scoreInput }));
+  }, [scoreInput]);
 
   if (!scoring || !scoreInput) return <p className="p-3 text-sm text-slate-500">Este modo no tiene puntuación configurada.</p>;
 
@@ -79,7 +80,7 @@ export function ScorePanel() {
             </tr>
           </tbody>
         </table>
-        <p className="mt-1 text-xs text-slate-500">Kill = {scoring.killPoints} punto. Gana quien llegue a {scoring.winScore}. Los campos editables son provisionales: solo se usan donde la config dice TODO.</p>
+        <p className="mt-1 text-xs text-slate-500">Kill = {scoring.killPoints} punto. Gana quien llegue a {scoring.winScore}. Los campos editables se guardan en este navegador y solo se usan donde la config dice TODO. También se editan en la pestaña Objet.</p>
       </section>
 
       {SIDES.map(({ id, name }) => {

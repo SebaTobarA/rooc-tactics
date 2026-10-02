@@ -41,6 +41,7 @@ function Pillar({ marker, objective, x, z }: { marker: Marker; objective?: Objec
   const stone = '#b9c0c8';
   const ghost = { transparent: pending, opacity: pending ? 0.4 : 1 };
   const glow = status === 'active' ? 0.55 : status.startsWith('captured') ? 0.3 : 0;
+  const tier = objective?.tier ?? marker.tier;
   return (
     <group position={[x, 0.42, z]}>
       {/* Basamento, fuste y capitel. */}
@@ -77,8 +78,8 @@ function Pillar({ marker, objective, x, z }: { marker: Marker; objective?: Objec
           <meshBasicMaterial color={color} transparent opacity={0.75} depthTest={false} />
         </mesh>
       )}
-      {objective?.tier && <Label text={objective.tier} position={[0, h + 4.2, 0]} color="#fde68a" height={2.4} />}
-      {objective?.timerSeconds != null && <Label text={formatTimer(objective.timerSeconds)} position={[0, h + (objective.tier ? 6.2 : 4.2), 0]} color="#fde68a" />}
+      {tier && <Label text={tier} position={[0, h + 4.2, 0]} color="#fde68a" height={2.4} />}
+      {objective?.timerSeconds != null && <Label text={formatTimer(objective.timerSeconds)} position={[0, h + (tier ? 6.2 : 4.2), 0]} color="#fde68a" />}
     </group>
   );
 }

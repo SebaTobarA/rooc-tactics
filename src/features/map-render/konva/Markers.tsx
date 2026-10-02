@@ -29,14 +29,15 @@ export const STATUS_COLORS: Record<ObjectiveStatus, string> = {
 export const formatTimer = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
 /** Pilar (central o ubicación posible): el color indica el estado y la letra el tier. */
-function PillarIcon({ central, objective }: { central: boolean; objective?: ObjectiveState }) {
+function PillarIcon({ central, objective, mapTier }: { central: boolean; objective?: ObjectiveState; mapTier?: string }) {
   const status = objective?.status ?? 'pending';
+  const tier = objective?.tier ?? mapTier;
   const r = central ? 15 : 11;
   return (
     <>
       <Circle radius={r} fill={STATUS_COLORS[status]} stroke={central ? '#7a5200' : '#f8fafc'} strokeWidth={2} dash={status === 'pending' ? [4, 3] : undefined} />
-      {objective?.tier ? (
-        <Text text={objective.tier} fontSize={central ? 16 : 13} fontStyle="bold" fill={status === 'pending' ? '#f8fafc' : '#111827'} width={30} offsetX={15} offsetY={central ? 8 : 6} align="center" />
+      {tier ? (
+        <Text text={tier} fontSize={central ? 16 : 13} fontStyle="bold" fill={status === 'pending' ? '#f8fafc' : '#111827'} width={30} offsetX={15} offsetY={central ? 8 : 6} align="center" />
       ) : central ? (
         <Star numPoints={8} innerRadius={5} outerRadius={11} fill="#fff4cf" stroke="#7a5200" strokeWidth={1} />
       ) : (
@@ -57,7 +58,7 @@ function MarkerIcon({ marker, objective }: { marker: Marker; objective?: Objecti
       return <Path data={CROSS} fill={SIDE_COLORS[marker.side ?? 'green']} stroke="#fff" strokeWidth={2} lineJoin="round" />;
     case 'central-pillar':
     case 'pillar-slot':
-      return <PillarIcon central={marker.kind === 'central-pillar'} objective={objective} />;
+      return <PillarIcon central={marker.kind === 'central-pillar'} objective={objective} mapTier={marker.tier} />;
     case 'point-green':
       return (
         <>

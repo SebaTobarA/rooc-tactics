@@ -19,7 +19,7 @@ export const valeOfClash: MapConfig = {
   },
   numpad: { cols: [0.387, 0.606], rows: [0.332, 0.584] },
   markers: [
-    { id: 'central-pillar', kind: 'central-pillar', pos: { x: 0.5048, y: 0.4813 }, label: 'Pilar central', confirmed: true },
+    { id: 'central-pillar', kind: 'central-pillar', tier: 'S', pos: { x: 0.5048, y: 0.4813 }, label: 'Pilar central', confirmed: true },
     { id: 'respawn-green-1', kind: 'respawn', side: 'green', pos: { x: 0.2943, y: 0.1306 }, label: 'Respawn Verde 1', confirmed: true },
     { id: 'respawn-green-2', kind: 'respawn', side: 'green', pos: { x: 0.7198, y: 0.1094 }, label: 'Respawn Verde 2', confirmed: true },
     { id: 'respawn-red-1', kind: 'respawn', side: 'red', pos: { x: 0.2801, y: 0.8837 }, label: 'Respawn Roja 1', confirmed: true },

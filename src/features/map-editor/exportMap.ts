@@ -7,7 +7,7 @@ export function exportConfigTs(map: MapConfig): string {
   const constName = map.id.replace(/-(\w)/g, (_, c: string) => c.toUpperCase());
   const markers = map.markers
     .map((m) => {
-      const side = m.side ? ` side: '${m.side}',` : '';
+      const side = (m.side ? ` side: '${m.side}',` : '') + (m.tier ? ` tier: '${m.tier}',` : '');
       return `    { id: '${m.id}', kind: '${m.kind}',${side} pos: { x: ${m.pos.x}, y: ${m.pos.y} }, label: ${JSON.stringify(m.label)}, confirmed: ${m.confirmed} },`;
     })
     .join('\n');

@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
+import { modeById } from '../../config/modes/index.ts';
 import { round4 } from '../../lib/geometry.ts';
 import { zoneOf } from '../../lib/numpad.ts';
 import { useEditorStore, type EditorTool } from '../../store/editorStore.ts';
@@ -81,6 +82,10 @@ export function EditorPanel() {
         <h2 className="font-semibold">Editor de mapa</h2>
         {dirty && <span className="rounded bg-amber-500/20 px-2 py-0.5 text-xs text-amber-600 dark:text-amber-300">Copia local modificada</span>}
       </div>
+      <div className="border-b border-slate-200 p-3 dark:border-slate-800">
+        <button className={`${button} w-full bg-sky-600 text-white hover:bg-sky-500 dark:hover:bg-sky-500`} onClick={() => ed.setActive(false)}>Listo: volver al tablero</button>
+        <p className="mt-1 text-xs text-slate-500">Arrastra los pilares y marcadores a su lugar. Los cambios se guardan solos en este navegador.</p>
+      </div>
 
       <Section title="Foto de referencia">
         <label className="flex items-center gap-2 text-sm">
@@ -135,6 +140,14 @@ export function EditorPanel() {
                 <select className={input} value={marker.side ?? 'green'} onChange={(e) => change((m) => (m.markers.find((k) => k.id === marker.id)!.side = e.target.value as Side))}>
                   <option value="green">Verde</option>
                   <option value="red">Roja</option>
+                </select>
+              </Field>
+            )}
+            {(marker.kind === 'central-pillar' || marker.kind === 'pillar-slot') && (
+              <Field label="Tier">
+                <select className={input} value={marker.tier ?? ''} onChange={(e) => change((m) => (m.markers.find((k) => k.id === marker.id)!.tier = e.target.value || undefined))}>
+                  <option value="">Sin definir</option>
+                  {(modeById(map.modeId)?.scoring?.tiers ?? []).map((t) => <option key={t.id} value={t.id}>{t.id}</option>)}
                 </select>
               </Field>
             )}

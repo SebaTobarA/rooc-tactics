@@ -5,6 +5,7 @@ import { clamp01, round4 } from '../../lib/geometry.ts';
 import { newId } from '../../lib/id.ts';
 import { zoneCenters, zoneOf } from '../../lib/numpad.ts';
 import { route, snapToWalkable } from '../../lib/walk.ts';
+import { tierPoints, useScoringStore } from '../../store/scoringStore.ts';
 import { emptyParty, emptyStep } from '../../store/strategyStore.ts';
 import type { Drawing, MapConfig, ObjectiveStatus, Party, Player, Raid, Step, Strategy, Token, Vec2 } from '../../types/index.ts';
 import { findJob } from '../party/partyActions.ts';
@@ -60,9 +61,10 @@ export function buildPrompt(request: string, strategy: Strategy, map: MapConfig)
   const scoring = mode?.scoring;
   const side = strategy.allySide === 'green' ? 'Verde' : 'Roja';
   const markers = map.markers
-    .map((m) => `- "${m.id}": ${m.label}${m.side ? ` (guild ${m.side === 'green' ? 'Verde' : 'Roja'})` : ''}${m.confirmed ? '' : ' [función por confirmar]'} — zona ${zoneOf(m.pos, map.numpad)}, x ${m.pos.x.toFixed(2)}, y ${m.pos.y.toFixed(2)}`)
+    .map((m) => `- "${m.id}": ${m.label}${m.tier ? ` (tier ${m.tier})` : ''}${m.side ? ` (guild ${m.side === 'green' ? 'Verde' : 'Roja'})` : ''}${m.confirmed ? '' : ' [función por confirmar]'} — zona ${zoneOf(m.pos, map.numpad)}, x ${m.pos.x.toFixed(2)}, y ${m.pos.y.toFixed(2)}`)
     .join('\n');
-  const tiers = scoring?.tiers.map((t) => `${t.id}: destruir ${t.destroyPoints ?? 'sin dato'}, captura por tick ${t.capturePointsPerTick ?? 'sin dato'}`).join('; ');
+  const points = tierPoints(strategy.modeId, useScoringStore.getState().overrides);
+  const tiers = points.tiers.map((t) => `${t.id}: destruir ${t.destroy ?? 'sin dato'}, captura por tick ${t.capturePerTick ?? 'sin dato'}`).join('; ') + (points.tickSeconds ? ` (un tick cada ${points.tickSeconds} s)` : '');
   const player = (id: string | null) => {
     const p = strategy.roster.find((x) => x.id === id);
     return p ? `${p.name} (${jobById(p.jobId)?.name ?? '?'})` : null;
