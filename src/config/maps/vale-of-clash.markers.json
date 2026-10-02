@@ -88,16 +88,6 @@
       "tier": "B"
     },
     {
-      "id": "point-green-4",
-      "kind": "point-green",
-      "pos": {
-        "x": 0.62,
-        "y": 0.93
-      },
-      "label": "Punto verde 4",
-      "confirmed": false
-    },
-    {
       "id": "pillar-slot-1",
       "kind": "pillar-slot",
       "pos": {
