@@ -1,17 +1,16 @@
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { PartiesPanel } from '../party/PartiesPanel.tsx';
+import { ScorePanel } from '../score/ScorePanel.tsx';
 import { JobsPanel } from './JobsPanel.tsx';
 import { LayersPanel } from './LayersPanel.tsx';
 import { ObjectivesPanel } from './ObjectivesPanel.tsx';
 import { SelectionInspector } from './SelectionInspector.tsx';
 
-const Pending = ({ children }: { children: ReactNode }) => <p className="p-3 text-sm text-slate-500">{children}</p>;
-
 const TABS = [
   { id: 'jobs', name: 'Jobs', render: () => <JobsPanel /> },
   { id: 'parties', name: 'Partys', render: () => <PartiesPanel /> },
   { id: 'objectives', name: 'Objetivos', render: () => <ObjectivesPanel /> },
-  { id: 'score', name: 'Puntos', render: () => <Pending>El simulador de puntos llega en la fase 8.</Pending> },
+  { id: 'score', name: 'Puntos', render: () => <ScorePanel /> },
   { id: 'layers', name: 'Capas', render: () => <LayersPanel /> },
 ] as const;
 
