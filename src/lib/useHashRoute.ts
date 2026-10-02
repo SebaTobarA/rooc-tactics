@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 
-export type Route = { name: 'home' } | { name: 'board'; mapId: string } | { name: 'shared'; data: string } | { name: 'published'; slug: string };
+export type Route = { name: 'home' } | { name: 'board'; mapId: string } | { name: 'shared'; data: string } | { name: 'published'; slug: string } | { name: 'admin' };
 
 function parse(hash: string): Route {
   const parts = hash.replace(/^#\/?/, '').split('/');
+  if (parts[0] === 'admin') return { name: 'admin' };
   if (parts[0] === 'p' && parts[1]) return { name: 'published', slug: parts[1] };
   if (parts[0] === 's' && parts[1]) return { name: 'shared', data: parts[1] };
   if (parts[0] === 'board' && parts[1]) return { name: 'board', mapId: parts[1] };

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useIsAdmin } from '../../store/adminStore.ts';
+import { useCanPublish, useIsAdmin } from '../../store/adminStore.ts';
 import { useMapStore } from '../../store/mapStore.ts';
 import { useScoringStore } from '../../store/scoringStore.ts';
 import { button } from '../board/ui.ts';
@@ -8,6 +8,7 @@ import { pendingChanges, publishMap } from './publish.ts';
 /** Publica el borrador del mapa y los puntos por tier para toda la guild. Solo lo ve el superadministrador. */
 export function PublishButton() {
   const admin = useIsAdmin();
+  const canPublish = useCanPublish();
   // Suscripciones para recalcular si hay cambios pendientes.
   useMapStore((s) => s.map);
   useScoringStore((s) => s.overrides);
@@ -26,6 +27,15 @@ export function PublishButton() {
       setState({ kind: 'error', text: e instanceof Error ? e.message : 'No se pudo publicar.' });
     }
   };
+
+  if (!canPublish) {
+    return (
+      <p className="rounded bg-amber-500/15 px-2 py-1 text-xs text-amber-700 dark:text-amber-200">
+        {any ? 'Tienes cambios en borrador: solo se ven en este navegador. ' : 'Lo que edites queda como borrador en este navegador. '}
+        Para guardarlos en el sistema para todos, agrega el token en <a className="underline" href="#/admin">administración</a>.
+      </p>
+    );
+  }
 
   return (
     <div className="space-y-1">

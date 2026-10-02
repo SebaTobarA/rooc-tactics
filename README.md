@@ -57,7 +57,7 @@ El sitio no tiene servidor, así que un enlace corto apunta a un archivo del rep
 
 ## Superadministrador
 
-Solo el superadministrador edita los mapas. No hay servidor: se ingresa (botón «Administrador») con un token de GitHub de acceso restringido a este repositorio con permiso «Contents: Read and write». Al pulsar «Publicar para todos», la web guarda en un commit:
+Solo el superadministrador edita los mapas. No hay servidor: la edición se activa en la dirección `#/admin` (no tiene botón en el sitio) y, para publicar, se agrega ahí un token de GitHub de acceso restringido a este repositorio con permiso «Contents: Read and write». Al pulsar «Publicar para todos», la web guarda en un commit:
 
 - `src/config/maps/<mapa>.geo.json` (terreno y plazas)
 - `src/config/maps/<mapa>.markers.json` (pilares con su tier, respawns, puntos y grilla)
