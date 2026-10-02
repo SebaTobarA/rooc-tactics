@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { Circle, Group, Path, Star, Text } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
+import { tierRank } from '../../../config/modes/index.ts';
 import { zoneOf } from '../../../lib/numpad.ts';
 import type { Projection } from '../../../lib/projection.ts';
 import type { Marker, NumpadGrid, ObjectiveState, ObjectiveStatus, Side, Vec2 } from '../../../types/index.ts';
@@ -29,17 +30,20 @@ export const STATUS_COLORS: Record<ObjectiveStatus, string> = {
 export const formatTimer = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
 /** Pilar (central o ubicación posible): el color indica el estado y la letra el tier. */
-function PillarIcon({ central, objective, mapTier }: { central: boolean; objective?: ObjectiveState; mapTier?: string }) {
+/** Radio del ícono de un pilar: crece con el tier (B < A < S). */
+export const pillarRadius = (rank: number) => 8.5 + rank * 7.5;
+
+function PillarIcon({ central, objective, mapTier, modeId }: { central: boolean; objective?: ObjectiveState; mapTier?: string; modeId: string }) {
   const status = objective?.status ?? 'pending';
   const tier = objective?.tier ?? mapTier;
-  const r = central ? 15 : 11;
+  const r = pillarRadius(tierRank(modeId, tier));
   return (
     <>
       <Circle radius={r} fill={STATUS_COLORS[status]} stroke={central ? '#7a5200' : '#f8fafc'} strokeWidth={2} dash={status === 'pending' ? [4, 3] : undefined} />
       {tier ? (
-        <Text text={tier} fontSize={central ? 16 : 13} fontStyle="bold" fill={status === 'pending' ? '#f8fafc' : '#111827'} width={30} offsetX={15} offsetY={central ? 8 : 6} align="center" />
+        <Text text={tier} fontSize={r * 1.1} fontStyle="bold" fill={status === 'pending' ? '#f8fafc' : '#111827'} width={40} offsetX={20} offsetY={r * 0.52} align="center" />
       ) : central ? (
-        <Star numPoints={8} innerRadius={5} outerRadius={11} fill="#fff4cf" stroke="#7a5200" strokeWidth={1} />
+        <Star numPoints={8} innerRadius={r * 0.33} outerRadius={r * 0.73} fill="#fff4cf" stroke="#7a5200" strokeWidth={1} />
       ) : (
         <Circle radius={2.5} fill="#f8fafc" />
       )}
@@ -52,13 +56,13 @@ function PillarIcon({ central, objective, mapTier }: { central: boolean; objecti
 }
 
 /** Íconos propios (formas simples); no usan arte del juego. */
-function MarkerIcon({ marker, objective }: { marker: Marker; objective?: ObjectiveState }) {
+function MarkerIcon({ marker, objective, modeId }: { marker: Marker; objective?: ObjectiveState; modeId: string }) {
   switch (marker.kind) {
     case 'respawn':
       return <Path data={CROSS} fill={SIDE_COLORS[marker.side ?? 'green']} stroke="#fff" strokeWidth={2} lineJoin="round" />;
     case 'central-pillar':
     case 'pillar-slot':
-      return <PillarIcon central={marker.kind === 'central-pillar'} objective={objective} mapTier={marker.tier} />;
+      return <PillarIcon central={marker.kind === 'central-pillar'} objective={objective} mapTier={marker.tier} modeId={modeId} />;
     case 'point-green':
       return (
         <>
@@ -80,6 +84,7 @@ interface Props {
   markers: Marker[];
   proj: Projection;
   grid: NumpadGrid;
+  modeId: string;
   objectives?: ObjectiveState[];
   selectedId?: string;
   /** Editor de mapa: los marcadores se pueden seleccionar y arrastrar. */
@@ -89,12 +94,14 @@ interface Props {
   onMove?: (id: string, pos: Vec2) => void;
 }
 
-export const Markers = memo(function Markers({ markers, proj, grid, objectives, selectedId, editable, onSelect, onMoveStart, onMove }: Props) {
+export const Markers = memo(function Markers({ markers, proj, grid, modeId, objectives, selectedId, editable, onSelect, onMoveStart, onMove }: Props) {
   return (
     <Group listening={!!editable}>
       {markers.map((m) => {
         const p = proj.toWorld(m.pos);
         const stop = (e: KonvaEventObject<MouseEvent | TouchEvent>) => (e.cancelBubble = true);
+        const objective = objectives?.find((o) => o.markerId === m.id);
+        const pillar = m.kind === 'central-pillar' || m.kind === 'pillar-slot';
         return (
           <Group
             key={m.id}
@@ -108,10 +115,10 @@ export const Markers = memo(function Markers({ markers, proj, grid, objectives, 
             onDragMove={(e) => onMove?.(m.id, proj.toNorm(e.target.position()))}
           >
             {selectedId === m.id && <Circle radius={20} stroke="#38bdf8" strokeWidth={2} dash={[5, 4]} />}
-            <MarkerIcon marker={m} objective={objectives?.find((o) => o.markerId === m.id)} />
+            <MarkerIcon marker={m} objective={objective} modeId={modeId} />
             <Text
               text={`${m.label}${m.confirmed ? '' : ' (?)'} · Z${zoneOf(m.pos, grid)}`}
-              y={m.kind === 'central-pillar' ? 19 : 15}
+              y={pillar ? pillarRadius(tierRank(modeId, objective?.tier ?? m.tier)) + 4 : 15}
               width={160}
               offsetX={80}
               align="center"

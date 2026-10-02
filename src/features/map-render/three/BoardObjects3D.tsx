@@ -3,6 +3,7 @@ import { Line } from '@react-three/drei';
 import * as THREE from 'three';
 import { jobById } from '../../../config/jobs.ts';
 import { roleById } from '../../../config/roles.ts';
+import { tierRank } from '../../../config/modes/index.ts';
 import { zoneCenters, zoneOf, ZONE_KEYS } from '../../../lib/numpad.ts';
 import { partyOfToken } from '../../party/partyActions.ts';
 import type { Projection3 } from '../../../lib/projection.ts';
@@ -30,13 +31,14 @@ function Label({ text, position, color, height = 1.6 }: { text: string; position
 
 // ---------- Marcadores ----------
 
-function Pillar({ marker, objective, x, z }: { marker: Marker; objective?: ObjectiveState; x: number; z: number }) {
-  const central = marker.kind === 'central-pillar';
+function Pillar({ marker, objective, modeId, x, z }: { marker: Marker; objective?: ObjectiveState; modeId: string; x: number; z: number }) {
   const status = objective?.status ?? 'pending';
   const pending = status === 'pending';
   const destroyed = status === 'destroyed';
-  const k = central ? 1.5 : 1;
-  const h = destroyed ? 1 : central ? 6.2 : 4.4;
+  // El tamaño crece con el tier: B < A < S.
+  const rank = tierRank(modeId, objective?.tier ?? marker.tier);
+  const k = 0.75 + rank * 0.8;
+  const h = destroyed ? 1 : 3.2 + rank * 3.2;
   const color = pending ? '#cbd5e1' : STATUS_COLORS[status];
   const stone = '#b9c0c8';
   const ghost = { transparent: pending, opacity: pending ? 0.4 : 1 };
@@ -91,7 +93,7 @@ export const Markers3D = memo(function Markers3D({ map, proj, objectives, labelH
         const [x, z] = proj.toGround(m.pos);
         const label = <Label text={`${m.label}${m.confirmed ? '' : ' (?)'} · Z${zoneOf(m.pos, map.numpad)}`} position={[x, 0.3, z + 3]} height={labelHeight} />;
         if (m.kind === 'central-pillar' || m.kind === 'pillar-slot') {
-          return <group key={m.id}><Pillar marker={m} objective={objectives.find((o) => o.markerId === m.id)} x={x} z={z} />{label}</group>;
+          return <group key={m.id}><Pillar marker={m} objective={objectives.find((o) => o.markerId === m.id)} modeId={map.modeId} x={x} z={z} />{label}</group>;
         }
         if (m.kind === 'respawn') {
           const color = SIDE_COLORS[m.side ?? 'green'];

@@ -360,6 +360,7 @@ export function BoardStage() {
               markers={map.markers}
               proj={proj}
               grid={map.numpad}
+              modeId={map.modeId}
               objectives={step.objectives}
               editable={editing && editor.tool === 'select'}
               selectedId={editor.selection?.type === 'marker' ? editor.selection.id : undefined}
