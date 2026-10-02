@@ -3,6 +3,7 @@ import { modeById } from '../../config/modes/index.ts';
 import { roles } from '../../config/roles.ts';
 import { clamp01, round4 } from '../../lib/geometry.ts';
 import { newId } from '../../lib/id.ts';
+import { onGround } from '../../store/boardActions.ts';
 import { emptyParty, useStrategyStore } from '../../store/strategyStore.ts';
 import type { Party, Player, RoleId, Strategy, Token, Vec2 } from '../../types/index.ts';
 
@@ -197,7 +198,7 @@ export function placePlayers(playerIds: string[], pos: Vec2): string[] {
       // Uno solo va en el punto; varios se reparten en círculo.
       const angle = (i / players.length) * Math.PI * 2 - Math.PI / 2;
       const r = players.length > 1 ? 0.028 : 0;
-      const p = { x: round4(clamp01(pos.x + Math.cos(angle) * r)), y: round4(clamp01(pos.y + Math.sin(angle) * r * 1.7)) };
+      const p = onGround({ x: round4(clamp01(pos.x + Math.cos(angle) * r)), y: round4(clamp01(pos.y + Math.sin(angle) * r * 1.7)) });
       const existing = tokens.find((t) => t.playerId === player.id);
       if (existing) {
         tokens = tokens.map((t) => (t.id === existing.id ? { ...t, pos: p } : t));

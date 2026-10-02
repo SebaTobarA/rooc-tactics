@@ -2,6 +2,7 @@ import { maps } from './config/maps/index.ts';
 import { ErrorBoundary } from './features/board/ErrorBoundary.tsx';
 import { BoardPage } from './features/board/BoardPage.tsx';
 import { Home } from './features/home/Home.tsx';
+import { PublishedLink } from './features/share/PublishedLink.tsx';
 import { SharedLink } from './features/share/SharedLink.tsx';
 import { useHashRoute } from './lib/useHashRoute.ts';
 import { useUiStore } from './store/uiStore.ts';
@@ -20,7 +21,7 @@ export function App() {
         </button>
       </header>
       <ErrorBoundary label="la página">
-        {route.name === 'shared' ? <SharedLink data={route.data} /> : board ? <BoardPage mapId={board.mapId} /> : <Home />}
+        {route.name === 'published' ? <PublishedLink slug={route.slug} /> : route.name === 'shared' ? <SharedLink data={route.data} /> : board ? <BoardPage mapId={board.mapId} /> : <Home />}
       </ErrorBoundary>
     </div>
   );

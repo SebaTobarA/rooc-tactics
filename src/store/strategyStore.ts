@@ -1,6 +1,8 @@
 import { create } from 'zustand';
+import { maps } from '../config/maps/index.ts';
 import { modeById } from '../config/modes/index.ts';
 import { repository } from '../data/StrategyRepository.ts';
+import { enforceTerrain } from '../lib/enforceTerrain.ts';
 import { newId } from '../lib/id.ts';
 import type { Party, Step, Strategy } from '../types/index.ts';
 
@@ -79,7 +81,12 @@ export const useStrategyStore = create<StrategyState>((set, get) => ({
   past: [],
   future: [],
   // Las estrategias guardadas antes de que existieran las raids no traen el campo.
-  open: (strategy) => set({ strategy: { ...strategy, raids: strategy.raids ?? [] }, stepIndex: 0, past: [], future: [] }),
+  open: (strategy) => {
+    const withRaids = { ...strategy, raids: strategy.raids ?? [] };
+    const map = maps[strategy.mapId];
+    // Fichas fuera del bosque y flechas por los senderos, también en estrategias antiguas.
+    set({ strategy: map ? enforceTerrain(withRaids, map) : withRaids, stepIndex: 0, past: [], future: [] });
+  },
   setStepIndex: (index) => set((s) => ({ stepIndex: Math.max(0, Math.min(s.strategy.steps.length - 1, index)) })),
   checkpoint: () => set((s) => ({ past: [...s.past.slice(-MAX_HISTORY + 1), s.strategy], future: [] })),
   set: (fn) => {

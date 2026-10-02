@@ -4,6 +4,7 @@ import { roles } from '../../config/roles.ts';
 import { clamp01, round4 } from '../../lib/geometry.ts';
 import { newId } from '../../lib/id.ts';
 import { zoneCenters, zoneOf } from '../../lib/numpad.ts';
+import { route, snapToWalkable } from '../../lib/walk.ts';
 import { emptyParty, emptyStep } from '../../store/strategyStore.ts';
 import type { Drawing, MapConfig, ObjectiveStatus, Party, Player, Raid, Step, Strategy, Token, Vec2 } from '../../types/index.ts';
 import { findJob } from '../party/partyActions.ts';
@@ -243,7 +244,8 @@ export function applyPlan(plan: AiPlan, base: Strategy, map: MapConfig, replace:
       const r = same.length > 1 ? 0.045 : 0;
       const angle = (k / same.length) * Math.PI * 2 - Math.PI / 2;
       if (!tokenIds.has(g.key)) tokenIds.set(g.key, newId('token'));
-      return { id: tokenIds.get(g.key)!, jobId: '', team: 'ally' as const, group: g.group, pos: { x: round4(clamp01(g.pos.x + Math.cos(angle) * r)), y: round4(clamp01(g.pos.y + Math.sin(angle) * r * map.aspect)) } };
+      const pos = snapToWalkable({ x: round4(clamp01(g.pos.x + Math.cos(angle) * r)), y: round4(clamp01(g.pos.y + Math.sin(angle) * r * map.aspect)) }, map.geometry, map.aspect);
+      return { id: tokenIds.get(g.key)!, jobId: '', team: 'ally' as const, group: g.group, pos };
     });
 
     const drawings: Drawing[] = [];
@@ -252,7 +254,10 @@ export function applyPlan(plan: AiPlan, base: Strategy, map: MapConfig, replace:
       const to = place(a.to, where);
       if (!from || !to || (from.x === to.x && from.y === to.y)) continue;
       const mid = { x: (from.x + to.x) / 2 - (to.y - from.y) * 0.25, y: (from.y + to.y) / 2 + (to.x - from.x) * 0.25 };
-      drawings.push({ id: newId('draw'), tool: a.curved ? 'curve-arrow' : 'arrow', points: a.curved ? [from, { x: round4(clamp01(mid.x)), y: round4(clamp01(mid.y)) }, to] : [from, to], color: color(a.color, '#f8fafc'), width: 4 });
+      // Las flechas siguen los senderos: si la recta cruza el bosque, se traza la ruta transitable.
+      const path = route(from, to, map.geometry, map.aspect);
+      const curved = a.curved && path.length === 2;
+      drawings.push({ id: newId('draw'), tool: curved ? 'curve-arrow' : 'arrow', points: curved ? [from, { x: round4(clamp01(mid.x)), y: round4(clamp01(mid.y)) }, to] : path, color: color(a.color, '#f8fafc'), width: 4 });
     }
     for (const z of s.zones ?? []) {
       const at = place(z.at, where);

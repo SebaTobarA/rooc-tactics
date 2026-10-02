@@ -45,3 +45,12 @@ También acepta `nombre`, `jobId`/`class`/`clase`, `rol` y `nota`, y un objeto `
 ## Despliegue
 
 Cada push a `main` publica en GitHub Pages con `.github/workflows/deploy.yml`. En el repositorio: Settings → Pages → Source: GitHub Actions. La ruta base (`/rooc-tactics/`) está en `vite.config.ts`.
+
+## Publicar una estrategia con enlace corto
+
+El sitio no tiene servidor, así que un enlace corto apunta a un archivo del repositorio:
+
+1. En la web: «Guardar y compartir» → «Exportar JSON».
+2. Guarda el archivo como `public/strategies/<nombre>.json` (solo letras, números y guiones).
+3. Agrega una entrada en `public/strategies/index.json` con `slug`, `name`, `modeId`, `mapId` y `updatedAt`.
+4. Haz commit y push. El enlace queda en `https://sebatobara.github.io/rooc-tactics/#/p/<nombre>`.

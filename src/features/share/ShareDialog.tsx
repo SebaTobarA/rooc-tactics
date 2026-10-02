@@ -64,6 +64,7 @@ export function ShareDialog({ onClose }: { onClose: () => void }) {
             <button className={button} disabled={url.length > URL_MAX_LENGTH} onClick={copy}>Copiar</button>
           </div>
           <p className="text-xs text-slate-500">{url.length.toLocaleString('es')} caracteres. La estrategia completa va comprimida dentro del enlace; no se sube a ningún servidor.</p>
+          <p className="text-xs text-slate-500">Para un enlace corto y estable (<code>#/p/nombre</code>), exporta el JSON y publícalo en la carpeta <code>public/strategies/</code> del proyecto; aparecerá en «Estrategias publicadas» del inicio.</p>
           {url.length > URL_MAX_LENGTH ? (
             <p className="text-sm text-red-600 dark:text-red-300" role="alert">El enlace quedó demasiado largo para funcionar de forma confiable. Usa «Exportar JSON» y comparte el archivo.</p>
           ) : url.length > URL_WARN_LENGTH ? (

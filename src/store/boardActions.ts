@@ -2,15 +2,22 @@ import { jobById } from '../config/jobs.ts';
 import { clamp01, round4 } from '../lib/geometry.ts';
 import { newId } from '../lib/id.ts';
 import type { Drawing, ObjectiveState, Token, Vec2 } from '../types/index.ts';
+import { snapToWalkable } from '../lib/walk.ts';
+import { useMapStore } from './mapStore.ts';
 import { useStrategyStore } from './strategyStore.ts';
 import { useUiStore } from './uiStore.ts';
 
 const store = () => useStrategyStore.getState();
 const shift = (p: Vec2, d: Vec2): Vec2 => ({ x: round4(clamp01(p.x + d.x)), y: round4(clamp01(p.y + d.y)) });
+/** Lleva una posición de ficha a terreno transitable: las fichas no pueden quedar sobre el bosque. */
+export function onGround(p: Vec2): Vec2 {
+  const { geometry, aspect } = useMapStore.getState().map;
+  return snapToWalkable(p, geometry, aspect);
+}
 
 export function addToken(jobId: string, pos: Vec2, extra: Partial<Token> = {}): string {
   const id = newId('token');
-  const token: Token = { id, pos, jobId, team: useUiStore.getState().newTokenTeam, role: jobById(jobId)?.role, ...extra };
+  const token: Token = { id, pos: onGround(pos), jobId, team: useUiStore.getState().newTokenTeam, role: jobById(jobId)?.role, ...extra };
   store().checkpoint();
   store().setStep((s) => ({ ...s, tokens: [...s.tokens, token] }));
   return id;
@@ -28,7 +35,7 @@ export function moveItems(ids: string[], delta: Vec2): void {
   const set = new Set(ids);
   store().setStep((s) => ({
     ...s,
-    tokens: s.tokens.map((t) => (set.has(t.id) && !t.locked ? { ...t, pos: shift(t.pos, delta) } : t)),
+    tokens: s.tokens.map((t) => (set.has(t.id) && !t.locked ? { ...t, pos: onGround(shift(t.pos, delta)) } : t)),
     drawings: s.drawings.map((d) => (set.has(d.id) && !d.locked ? { ...d, points: d.points.map((p) => shift(p, delta)) } : d)),
   }));
 }
@@ -48,7 +55,7 @@ export function duplicateItems(ids: string[]): void {
   const created: string[] = [];
   store().checkpoint();
   store().setStep((s) => {
-    const tokens = s.tokens.filter((t) => set.has(t.id)).map((t) => ({ ...t, id: newId('token'), pos: shift(t.pos, offset), locked: false }));
+    const tokens = s.tokens.filter((t) => set.has(t.id)).map((t) => ({ ...t, id: newId('token'), pos: onGround(shift(t.pos, offset)), locked: false }));
     const drawings = s.drawings.filter((d) => set.has(d.id)).map((d) => ({ ...d, id: newId('draw'), points: d.points.map((p) => shift(p, offset)), locked: false }));
     created.push(...tokens.map((t) => t.id), ...drawings.map((d) => d.id));
     return { ...s, tokens: [...s.tokens, ...tokens], drawings: [...s.drawings, ...drawings] };

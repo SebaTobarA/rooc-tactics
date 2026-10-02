@@ -1,8 +1,23 @@
+import { useEffect, useState } from 'react';
 import { mapSummary } from '../../config/maps/index.ts';
 import { modes } from '../../config/modes/index.ts';
 
 /** Pantalla inicial: elegir Modo → Mapa. Todo sale de la config. */
+interface Published {
+  slug: string;
+  name: string;
+  mapId: string;
+  updatedAt: string;
+}
+
 export function Home() {
+  const [published, setPublished] = useState<Published[]>([]);
+  useEffect(() => {
+    fetch(`${import.meta.env.BASE_URL}strategies/index.json`, { cache: 'no-cache' })
+      .then((r) => (r.ok ? (r.json() as Promise<Published[]>) : []))
+      .then(setPublished)
+      .catch(() => setPublished([]));
+  }, []);
   return (
     <main className="mx-auto max-w-5xl p-6">
       <h2 className="mb-1 text-2xl font-semibold">Elige un modo y un mapa</h2>
@@ -33,6 +48,21 @@ export function Home() {
           </section>
         ))}
       </div>
+      {published.length > 0 && (
+        <section className="mt-8">
+          <h2 className="mb-2 text-lg font-semibold">Estrategias publicadas</h2>
+          <ul className="grid gap-2 md:grid-cols-2">
+            {published.map((p) => (
+              <li key={p.slug}>
+                <a href={`#/p/${p.slug}`} className="block rounded-lg border border-slate-200 bg-white px-3 py-2 hover:border-sky-500 dark:border-slate-800 dark:bg-slate-900">
+                  <span className="font-medium">{p.name}</span>
+                  <span className="block text-xs text-slate-500">{mapSummary(p.mapId).name} · {new Date(p.updatedAt).toLocaleDateString('es')} · enlace corto: #/p/{p.slug}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </main>
   );
 }

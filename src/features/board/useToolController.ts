@@ -1,6 +1,8 @@
 import { useCallback, useRef, useState } from 'react';
 import { roundVec } from '../../lib/geometry.ts';
+import { route, segmentWalkable } from '../../lib/walk.ts';
 import { addDrawing, removeItems } from '../../store/boardActions.ts';
+import { useMapStore } from '../../store/mapStore.ts';
 import { useStrategyStore } from '../../store/strategyStore.ts';
 import { useUiStore, type Tool } from '../../store/uiStore.ts';
 import type { Drawing, DrawingTool, Vec2 } from '../../types/index.ts';
@@ -66,7 +68,17 @@ export function useToolController(aspect: number) {
     put(null);
     const [a, b] = [d.points[0], d.points[d.points.length - 1]];
     if (d.points.length < 2 || normDist(a, b, aspect) < 0.006) return;
-    addDrawing(d.tool === 'curve-arrow' ? { ...d, points: [a, roundVec(curveControl(a, b, aspect)), b] } : d);
+    if (d.tool === 'line' || d.tool === 'arrow' || d.tool === 'curve-arrow') {
+      // Rutas de movimiento: no cruzan el bosque. Si la recta lo atraviesa, se reemplaza por el camino transitable.
+      const { geometry } = useMapStore.getState().map;
+      const path = route(a, b, geometry, aspect);
+      if (path.length > 2 || d.tool !== 'curve-arrow') return void addDrawing({ ...d, tool: d.tool === 'curve-arrow' ? 'arrow' : d.tool, points: path });
+      const control = roundVec(curveControl(path[0], path[1], aspect));
+      // La curva solo se conserva si su arco tampoco pisa el bosque.
+      const clear = segmentWalkable(path[0], control, geometry, aspect) && segmentWalkable(control, path[1], geometry, aspect);
+      return void addDrawing(clear ? { ...d, points: [path[0], control, path[1]] } : { ...d, tool: 'arrow', points: path });
+    }
+    addDrawing(d);
   }, [aspect]);
 
   return { draft, down, move, up };

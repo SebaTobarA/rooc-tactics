@@ -246,7 +246,7 @@ function Drawing3D({ d, proj, aspect, selected }: { d: Draft; proj: Projection3;
   const head = useMemo(() => {
     if (d.tool !== 'arrow' && d.tool !== 'curve-arrow') return null;
     const end = d.points[d.points.length - 1];
-    const prev = d.tool === 'curve-arrow' ? (d.points.length === 3 ? d.points[1] : curveControl(d.points[0], end, aspect)) : d.points[0];
+    const prev = d.tool === 'curve-arrow' ? (d.points.length === 3 ? d.points[1] : curveControl(d.points[0], end, aspect)) : d.points[d.points.length - 2];
     const [ex, ez] = proj.toGround(end);
     const [px, pz] = proj.toGround(prev);
     return { ex, ez, angle: Math.atan2(ex - px, ez - pz) };
@@ -259,7 +259,8 @@ function Drawing3D({ d, proj, aspect, selected }: { d: Draft; proj: Projection3;
     case 'arrow':
     case 'curve-arrow': {
       const [a, b] = [d.points[0], d.points[d.points.length - 1]];
-      let pts = [v(a), v(b)];
+      // Una flecha enrutada por los senderos trae puntos intermedios.
+      let pts = d.points.map(v);
       if (d.tool === 'curve-arrow') {
         const c = d.points.length === 3 ? d.points[1] : curveControl(a, b, aspect);
         pts = new THREE.CatmullRomCurve3([a, c, b].map((p) => new THREE.Vector3(...v(p)))).getPoints(24).map((p) => [p.x, p.y, p.z]);

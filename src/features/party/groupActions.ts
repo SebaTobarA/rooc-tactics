@@ -1,6 +1,7 @@
 import { modeById } from '../../config/modes/index.ts';
 import { clamp01, round4 } from '../../lib/geometry.ts';
 import { newId } from '../../lib/id.ts';
+import { onGround } from '../../store/boardActions.ts';
 import { emptyParty, useStrategyStore } from '../../store/strategyStore.ts';
 import { useUiStore } from '../../store/uiStore.ts';
 import type { Party, Raid, Step, Strategy, Token, Vec2 } from '../../types/index.ts';
@@ -11,7 +12,7 @@ const change = (fn: (s: Strategy) => Strategy) => {
   store().checkpoint();
   store().set(fn);
 };
-const clampVec = (p: Vec2): Vec2 => ({ x: round4(clamp01(p.x)), y: round4(clamp01(p.y)) });
+const clampVec = (p: Vec2): Vec2 => onGround({ x: round4(clamp01(p.x)), y: round4(clamp01(p.y)) });
 const centroidOf = (tokens: Token[]): Vec2 | null =>
   tokens.length ? { x: tokens.reduce((a, t) => a + t.pos.x, 0) / tokens.length, y: tokens.reduce((a, t) => a + t.pos.y, 0) / tokens.length } : null;
 
