@@ -1,25 +1,25 @@
 {
   "numpad": {
     "cols": [
-      0.387,
-      0.606
+      0.425,
+      0.594
     ],
     "rows": [
       0.332,
-      0.584
+      0.627
     ]
   },
   "markers": [
     {
       "id": "central-pillar",
       "kind": "central-pillar",
-      "tier": "S",
       "pos": {
-        "x": 0.5048,
-        "y": 0.4813
+        "x": 0.5055,
+        "y": 0.4818
       },
       "label": "Pilar central",
-      "confirmed": true
+      "confirmed": true,
+      "tier": "S"
     },
     {
       "id": "respawn-green-1",
@@ -66,34 +66,26 @@
       "confirmed": true
     },
     {
-      "id": "point-green-1",
-      "kind": "point-green",
-      "pos": {
-        "x": 0.42,
-        "y": 0.13
-      },
-      "label": "Punto verde 1",
-      "confirmed": false
-    },
-    {
       "id": "point-green-2",
-      "kind": "point-green",
+      "kind": "pillar-slot",
       "pos": {
-        "x": 0.73,
-        "y": 0.52
+        "x": 0.7279,
+        "y": 0.5224
       },
-      "label": "Punto verde 2",
-      "confirmed": false
+      "label": "B 3",
+      "confirmed": true,
+      "tier": "B"
     },
     {
       "id": "point-green-3",
-      "kind": "point-green",
+      "kind": "pillar-slot",
       "pos": {
-        "x": 0.27,
-        "y": 0.69
+        "x": 0.2714,
+        "y": 0.6806
       },
       "label": "Punto verde 3",
-      "confirmed": false
+      "confirmed": false,
+      "tier": "B"
     },
     {
       "id": "point-green-4",
@@ -106,54 +98,26 @@
       "confirmed": false
     },
     {
-      "id": "point-purple-1",
-      "kind": "point-purple",
-      "pos": {
-        "x": 0.39,
-        "y": 0.26
-      },
-      "label": "Punto morado 1",
-      "confirmed": false
-    },
-    {
-      "id": "point-purple-2",
-      "kind": "point-purple",
-      "pos": {
-        "x": 0.63,
-        "y": 0.69
-      },
-      "label": "Punto morado 2",
-      "confirmed": false
-    },
-    {
-      "id": "point-purple-3",
-      "kind": "point-purple",
-      "pos": {
-        "x": 0.42,
-        "y": 0.83
-      },
-      "label": "Punto morado 3",
-      "confirmed": false
-    },
-    {
       "id": "pillar-slot-1",
       "kind": "pillar-slot",
       "pos": {
-        "x": 0.5932,
-        "y": 0.2792
+        "x": 0.5877,
+        "y": 0.3164
       },
       "label": "Pilar 1",
-      "confirmed": false
+      "confirmed": false,
+      "tier": "A"
     },
     {
       "id": "pillar-slot-2",
       "kind": "pillar-slot",
       "pos": {
         "x": 0.7181,
-        "y": 0.33
+        "y": 0.3314
       },
       "label": "Pilar 2",
-      "confirmed": false
+      "confirmed": false,
+      "tier": "B"
     },
     {
       "id": "pillar-slot-3",
@@ -163,7 +127,8 @@
         "y": 0.3872
       },
       "label": "Pilar 3",
-      "confirmed": false
+      "confirmed": false,
+      "tier": "B"
     },
     {
       "id": "pillar-slot-4",
@@ -173,7 +138,8 @@
         "y": 0.4318
       },
       "label": "Pilar 4",
-      "confirmed": false
+      "confirmed": false,
+      "tier": "B"
     },
     {
       "id": "pillar-slot-5",
@@ -183,7 +149,8 @@
         "y": 0.6898
       },
       "label": "Pilar 5",
-      "confirmed": false
+      "confirmed": false,
+      "tier": "B"
     },
     {
       "id": "pillar-slot-6",
@@ -193,7 +160,63 @@
         "y": 0.6938
       },
       "label": "Pilar 6",
-      "confirmed": false
+      "confirmed": false,
+      "tier": "A"
+    },
+    {
+      "id": "pillar-slot-jgbkiw",
+      "kind": "pillar-slot",
+      "pos": {
+        "x": 0.6278,
+        "y": 0.6968
+      },
+      "label": "Pilar 9",
+      "confirmed": false,
+      "tier": "A"
+    },
+    {
+      "id": "pillar-slot-t0rl2l",
+      "kind": "pillar-slot",
+      "pos": {
+        "x": 0.4197,
+        "y": 0.1253
+      },
+      "label": "Pilar 10",
+      "confirmed": false,
+      "tier": "B"
+    },
+    {
+      "id": "pillar-slot-231f8x",
+      "kind": "pillar-slot",
+      "pos": {
+        "x": 0.5848,
+        "y": 0.0839
+      },
+      "label": "Pilar 11",
+      "confirmed": false,
+      "tier": "B"
+    },
+    {
+      "id": "pillar-slot-cys8gl",
+      "kind": "pillar-slot",
+      "pos": {
+        "x": 0.3895,
+        "y": 0.2792
+      },
+      "label": "Pilar 12",
+      "confirmed": false,
+      "tier": "A"
+    },
+    {
+      "id": "pillar-slot-w6oiqn",
+      "kind": "pillar-slot",
+      "pos": {
+        "x": 0.4174,
+        "y": 0.8354
+      },
+      "label": "Pilar 13",
+      "confirmed": false,
+      "tier": "B"
     }
   ]
 }
