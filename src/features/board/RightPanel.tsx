@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { PartiesPanel } from '../party/PartiesPanel.tsx';
 import { JobsPanel } from './JobsPanel.tsx';
 import { LayersPanel } from './LayersPanel.tsx';
 import { ObjectivesPanel } from './ObjectivesPanel.tsx';
@@ -8,7 +9,7 @@ const Pending = ({ children }: { children: ReactNode }) => <p className="p-3 tex
 
 const TABS = [
   { id: 'jobs', name: 'Jobs', render: () => <JobsPanel /> },
-  { id: 'parties', name: 'Partys', render: () => <Pending>La composición de partys llega en la fase 6.</Pending> },
+  { id: 'parties', name: 'Partys', render: () => <PartiesPanel /> },
   { id: 'objectives', name: 'Objetivos', render: () => <ObjectivesPanel /> },
   { id: 'score', name: 'Puntos', render: () => <Pending>El simulador de puntos llega en la fase 8.</Pending> },
   { id: 'layers', name: 'Capas', render: () => <LayersPanel /> },

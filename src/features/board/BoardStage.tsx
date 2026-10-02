@@ -5,7 +5,7 @@ import type { KonvaEventObject } from 'konva/lib/Node';
 import { roundVec } from '../../lib/geometry.ts';
 import { zoneOf } from '../../lib/numpad.ts';
 import { fitView, makeProjection, screenToWorld, type View } from '../../lib/projection.ts';
-import { addToken, moveItems } from '../../store/boardActions.ts';
+import { moveItems } from '../../store/boardActions.ts';
 import { useEditorStore, type Selection } from '../../store/editorStore.ts';
 import { useMapStore } from '../../store/mapStore.ts';
 import { useCurrentStep, useStrategyStore } from '../../store/strategyStore.ts';
@@ -16,7 +16,7 @@ import { addMarker, addPlaza, addPolygon } from '../map-editor/geometryOps.ts';
 import { MapShapes } from '../map-render/konva/MapShapes.tsx';
 import { Markers } from '../map-render/konva/Markers.tsx';
 import { NumpadGrid } from '../map-render/konva/NumpadGrid.tsx';
-import { JOB_MIME } from './dnd.ts';
+import { acceptsBoardDrop, dropOnBoard } from './dnd.ts';
 import { Drawings, DrawingShape } from './konva/Drawings.tsx';
 import { Tokens } from './konva/Tokens.tsx';
 import { stageHandle } from './stageHandle.ts';
@@ -294,13 +294,11 @@ export function BoardStage() {
   }, []);
 
   const onDrop = (e: DragEvent) => {
-    const jobId = e.dataTransfer.getData(JOB_MIME);
-    if (!jobId) return;
+    if (!acceptsBoardDrop(e.dataTransfer)) return;
     e.preventDefault();
     const rect = containerRef.current!.getBoundingClientRect();
-    const p = proj.toNorm(screenToWorld({ x: e.clientX - rect.left, y: e.clientY - rect.top }, view));
-    if (p.x < 0 || p.x > 1 || p.y < 0 || p.y > 1) return;
-    setSelection([addToken(jobId, roundVec(p))]);
+    const ids = dropOnBoard(e.dataTransfer, proj.toNorm(screenToWorld({ x: e.clientX - rect.left, y: e.clientY - rect.top }, view)));
+    if (ids.length) setSelection(ids);
   };
 
   const showPhoto = editing && editor.showReference && editor.reference;
@@ -310,7 +308,7 @@ export function BoardStage() {
 
   return (
     <div ref={containerRef} className="relative h-full w-full overflow-hidden" style={{ background: map.style.fog, cursor: cursorStyle }}
-      onDragOver={(e) => e.dataTransfer.types.includes(JOB_MIME) && e.preventDefault()} onDrop={onDrop}>
+      onDragOver={(e) => acceptsBoardDrop(e.dataTransfer) && e.preventDefault()} onDrop={onDrop}>
       <Stage
         ref={stageRef}
         width={size.w}

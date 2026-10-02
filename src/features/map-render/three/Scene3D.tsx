@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { roundVec } from '../../../lib/geometry.ts';
 import { makeProjection3, type Projection3 } from '../../../lib/projection.ts';
-import { addToken, moveItems } from '../../../store/boardActions.ts';
+import { moveItems } from '../../../store/boardActions.ts';
 import { useMapStore } from '../../../store/mapStore.ts';
 import { useCurrentStep, useStrategyStore } from '../../../store/strategyStore.ts';
 import { useUiStore } from '../../../store/uiStore.ts';
 import type { Vec2 } from '../../../types/index.ts';
-import { JOB_MIME } from '../../board/dnd.ts';
+import { acceptsBoardDrop, dropOnBoard } from '../../board/dnd.ts';
 import { hitDrawing } from '../../board/hit.ts';
 import { stageHandle } from '../../board/stageHandle.ts';
 import { isDrawingTool, useToolController } from '../../board/useToolController.ts';
@@ -168,11 +167,11 @@ export default function Scene3D() {
   };
 
   const onDrop = (e: DragEvent) => {
-    const jobId = e.dataTransfer.getData(JOB_MIME);
     const p = groundAt(e.clientX, e.clientY);
-    if (!jobId || !p || p.x < 0 || p.x > 1 || p.y < 0 || p.y > 1) return;
+    if (!p || !acceptsBoardDrop(e.dataTransfer)) return;
     e.preventDefault();
-    setSelection([addToken(jobId, roundVec(p))]);
+    const ids = dropOnBoard(e.dataTransfer, p);
+    if (ids.length) setSelection(ids);
   };
 
   const zoomBy = (f: number) => setRig((r) => ({ ...r, zoom: Math.min(8, Math.max(0.4, r.zoom * f)) }));
@@ -191,7 +190,7 @@ export default function Scene3D() {
       onPointerLeave={() => setCursor(null)}
       onWheel={(e) => zoomBy(Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)))}
       onContextMenu={(e) => e.preventDefault()}
-      onDragOver={(e) => e.dataTransfer.types.includes(JOB_MIME) && e.preventDefault()}
+      onDragOver={(e) => acceptsBoardDrop(e.dataTransfer) && e.preventDefault()}
       onDrop={onDrop}
     >
       {/* Sin sombras y con dpr acotado: pensado para gráficas integradas. */}

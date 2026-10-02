@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import { Circle, Group, Text } from 'react-konva';
+import { partyOfToken } from '../../party/partyActions.ts';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import { jobById } from '../../../config/jobs.ts';
 import { roleById } from '../../../config/roles.ts';
@@ -32,7 +33,7 @@ export const Tokens = memo(function Tokens({ tokens, proj, grid, parties, allySi
       {tokens.map((t) => {
         const p = proj.toWorld(t.pos);
         const job = jobById(t.jobId);
-        const party = parties.find((x) => x.id === t.partyId);
+        const party = partyOfToken(parties, t);
         const role = roleById(t.role);
         const selected = selection.includes(t.id);
         const stop = (e: KonvaEventObject<MouseEvent | TouchEvent>) => (e.cancelBubble = true);

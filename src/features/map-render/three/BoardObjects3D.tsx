@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { jobById } from '../../../config/jobs.ts';
 import { roleById } from '../../../config/roles.ts';
 import { zoneCenters, zoneOf, ZONE_KEYS } from '../../../lib/numpad.ts';
+import { partyOfToken } from '../../party/partyActions.ts';
 import type { Projection3 } from '../../../lib/projection.ts';
 import type { Drawing, MapConfig, Marker, ObjectiveState, Party, Side, Token, Vec2 } from '../../../types/index.ts';
 import { curveControl } from '../../board/hit.ts';
@@ -148,7 +149,7 @@ export const Tokens3D = memo(function Tokens3D({ tokens, proj, map, parties, all
           abbr: job?.abbr ?? '?',
           color: job?.color ?? '#475569',
           ring,
-          party: parties.find((p) => p.id === t.partyId)?.number,
+          party: partyOfToken(parties, t)?.number,
           roleColor: role?.color,
           label: `${t.playerName ? t.playerName + ' · ' : ''}${role ? role.short + ' · ' : ''}Z${zoneOf(t.pos, map.numpad)}`,
           selected: selection.includes(t.id),
