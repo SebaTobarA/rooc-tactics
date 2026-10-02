@@ -3,6 +3,7 @@ import { Circle, Group, Line, Path, Rect, Shape } from 'react-konva';
 import type { Context } from 'konva/lib/Context';
 import { scatterForest, mulberry32 } from '../../../lib/forest.ts';
 import { centroid, ringsToPath } from '../../../lib/geometry.ts';
+import { isWalkable } from '../../../lib/walk.ts';
 import type { Projection } from '../../../lib/projection.ts';
 import type { PolyList, Selection } from '../../../store/editorStore.ts';
 import type { MapConfig, Polygon } from '../../../types/index.ts';
@@ -58,6 +59,8 @@ export const MapShapes = memo(function MapShapes({ map, proj, onPick }: Props) {
     [g, map.aspect, proj, style.canopy.length],
   );
 
+  const markerWorld = useMemo(() => map.markers.map((m) => proj.toWorld(m.pos)), [map.markers, proj]);
+
   // Nubes: bolas blancas repartidas por fuera del contorno, que lo tapan un poco como en el mapa original.
   const clouds = useMemo(() => {
     const rand = mulberry32(11);
@@ -72,12 +75,19 @@ export const MapShapes = memo(function MapShapes({ map, proj, onPick }: Props) {
         const len = Math.hypot(x - c.x, y - c.y) || 1;
         for (let layer = 0; layer < 3; layer++) {
           const out_ = 34 + layer * 40 + rand() * 24;
-          out.push({ x: x + ((x - c.x) / len) * out_ + (rand() - 0.5) * 30, y: y + ((y - c.y) / len) * out_ + (rand() - 0.5) * 30, r: 26 + rand() * 30 + layer * 8 });
+          const puff = { x: x + ((x - c.x) / len) * out_ + (rand() - 0.5) * 30, y: y + ((y - c.y) / len) * out_ + (rand() - 0.5) * 30, r: 26 + rand() * 30 + layer * 8 };
+          // Una nube nunca tapa terreno transitable, pilares ni respawns: si los pisa (contando su borde difuso), no se dibuja.
+          const reach = puff.r + 24;
+          const covers =
+            [0, 1, 2, 3, 4, 5, 6, 7].some((k) => isWalkable(proj.toNorm({ x: puff.x + Math.cos((k * Math.PI) / 4) * reach, y: puff.y + Math.sin((k * Math.PI) / 4) * reach }), g)) ||
+            isWalkable(proj.toNorm(puff), g) ||
+            markerWorld.some((m) => Math.hypot(m.x - puff.x, m.y - puff.y) < reach + 22);
+          if (!covers) out.push(puff);
         }
       }
     });
     return out;
-  }, [boundsWorld, g.bounds, proj]);
+  }, [boundsWorld, g, markerWorld, proj]);
 
   // Los agujeros de lo transitable son los brazos de las espirales: ahí van los muros de las ruinas.
   const wallPath = useMemo(() => ringsToPath(g.walkable.flatMap((p) => p.holes ?? []), proj), [g.walkable, proj]);

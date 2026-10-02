@@ -151,7 +151,7 @@
       },
       "label": "Pilar 6",
       "confirmed": false,
-      "tier": "A"
+      "tier": "B"
     },
     {
       "id": "pillar-slot-jgbkiw",
@@ -205,6 +205,27 @@
         "y": 0.8354
       },
       "label": "Pilar 13",
+      "confirmed": false,
+      "tier": "A"
+    },
+    {
+      "id": "pillar-slot-mll4x6",
+      "kind": "pillar-slot",
+      "pos": {
+        "x": 0.4546,
+        "y": 0.0938
+      },
+      "label": "Pilar 14",
+      "confirmed": false
+    },
+    {
+      "id": "pillar-slot-fynje7",
+      "kind": "pillar-slot",
+      "pos": {
+        "x": 0.617,
+        "y": 0.9332
+      },
+      "label": "Pilar 15",
       "confirmed": false,
       "tier": "B"
     }
