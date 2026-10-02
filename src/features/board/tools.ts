@@ -32,6 +32,7 @@ export const SHORTCUTS: [string, string][] = [
   ['Ctrl+A', 'Seleccionar todo'],
   ['Shift+clic', 'Agregar o quitar de la selección'],
   ['Esc', 'Quitar la selección'],
+  ['[ / ]', 'Paso anterior / siguiente'],
   ['Rueda', 'Zoom'],
   ['Espacio + arrastrar / botón central', 'Desplazar el mapa'],
   ['?', 'Mostrar esta ayuda'],

@@ -8,9 +8,10 @@ import { fitView, makeProjection, screenToWorld, type View } from '../../lib/pro
 import { moveItems } from '../../store/boardActions.ts';
 import { useEditorStore, type Selection } from '../../store/editorStore.ts';
 import { useMapStore } from '../../store/mapStore.ts';
-import { useCurrentStep, useStrategyStore } from '../../store/strategyStore.ts';
+import { useStrategyStore } from '../../store/strategyStore.ts';
 import { useUiStore } from '../../store/uiStore.ts';
 import type { Vec2 } from '../../types/index.ts';
+import { useDisplayedStep } from '../timeline/displayedStep.ts';
 import { EditorOverlay } from '../map-editor/EditorOverlay.tsx';
 import { addMarker, addPlaza, addPolygon } from '../map-editor/geometryOps.ts';
 import { MapShapes } from '../map-render/konva/MapShapes.tsx';
@@ -31,7 +32,8 @@ export function BoardStage() {
   const map = useMapStore((s) => s.map);
   const updateMap = useMapStore((s) => s.update);
   const checkpointMap = useMapStore((s) => s.checkpoint);
-  const step = useCurrentStep();
+  const step = useDisplayedStep();
+  const playing = useUiStore((s) => s.playback !== null);
   const flipped = useStrategyStore((s) => s.strategy.flipped);
   const allySide = useStrategyStore((s) => s.strategy.allySide);
   const parties = useStrategyStore((s) => s.strategy.parties);
@@ -127,7 +129,7 @@ export function BoardStage() {
   const editing = editor.active;
   // Herramientas que usan el clic izquierdo para colocar o dibujar; ahí se desplaza con espacio o botón central.
   const placing = editing ? editor.tool !== 'select' : isDrawingTool(tool);
-  const selecting = !editing && tool === 'select';
+  const selecting = !editing && !playing && tool === 'select';
 
   const startPan = (clientX: number, clientY: number) => (pan.current = { x: clientX, y: clientY, moved: false });
 
@@ -137,7 +139,7 @@ export function BoardStage() {
       e.evt.preventDefault();
       return startPan(clientX, clientY);
     }
-    if (button !== 0 || editing) return;
+    if (button !== 0 || editing || playing) return;
     if (selecting) {
       const w = pointerWorld();
       if (!w) return;

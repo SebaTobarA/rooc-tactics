@@ -27,6 +27,8 @@ interface UiState {
   selection: string[];
   newTokenTeam: Token['team'];
   helpOpen: boolean;
+  /** Reproducción en curso: transición del paso `from` al `to`, con avance t en 0–1. */
+  playback: { from: number; to: number; t: number } | null;
   /** Posición del cursor sobre el mapa (normalizada), para la barra de estado. */
   cursor: Vec2 | null;
   toggleTheme(): void;
@@ -38,6 +40,7 @@ interface UiState {
   setSelection(ids: string[]): void;
   setNewTokenTeam(team: Token['team']): void;
   setHelpOpen(open: boolean): void;
+  setPlayback(playback: UiState['playback']): void;
   setCursor(p: Vec2 | null): void;
 }
 
@@ -54,6 +57,7 @@ export const useUiStore = create<UiState>((set) => ({
   selection: [],
   newTokenTeam: 'ally',
   helpOpen: false,
+  playback: null,
   cursor: null,
   toggleTheme: () =>
     set((s) => {
@@ -70,5 +74,6 @@ export const useUiStore = create<UiState>((set) => ({
   setSelection: (selection) => set({ selection }),
   setNewTokenTeam: (newTokenTeam) => set({ newTokenTeam }),
   setHelpOpen: (helpOpen) => set({ helpOpen }),
+  setPlayback: (playback) => set({ playback }),
   setCursor: (cursor) => set({ cursor }),
 }));

@@ -4,6 +4,7 @@ import { useEditorStore } from '../../store/editorStore.ts';
 import { useMapStore } from '../../store/mapStore.ts';
 import { useStrategyStore } from '../../store/strategyStore.ts';
 import { useUiStore } from '../../store/uiStore.ts';
+import { goToStep } from '../timeline/timelineActions.ts';
 import { TOOLS } from './tools.ts';
 
 const isTyping = (e: KeyboardEvent) => e.target instanceof HTMLElement && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
@@ -38,6 +39,8 @@ export function useBoardShortcuts() {
       if (mod || e.altKey) return;
       if (e.key === 'Delete' || e.key === 'Backspace') return removeItems(ui.selection);
       if (e.key === 'Escape') return ui.helpOpen ? ui.setHelpOpen(false) : ui.setSelection([]);
+      if (e.key === '[') return goToStep(strategy.stepIndex - 1);
+      if (e.key === ']') return goToStep(strategy.stepIndex + 1);
       if (e.key === '?') return ui.setHelpOpen(!ui.helpOpen);
       const tool = TOOLS.find((t) => t.key.toLowerCase() === key);
       if (tool) ui.setTool(tool.id);

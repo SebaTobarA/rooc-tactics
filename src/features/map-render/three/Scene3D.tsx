@@ -4,13 +4,14 @@ import * as THREE from 'three';
 import { makeProjection3, type Projection3 } from '../../../lib/projection.ts';
 import { moveItems } from '../../../store/boardActions.ts';
 import { useMapStore } from '../../../store/mapStore.ts';
-import { useCurrentStep, useStrategyStore } from '../../../store/strategyStore.ts';
+import { useStrategyStore } from '../../../store/strategyStore.ts';
 import { useUiStore } from '../../../store/uiStore.ts';
 import type { Vec2 } from '../../../types/index.ts';
 import { acceptsBoardDrop, dropOnBoard } from '../../board/dnd.ts';
 import { hitDrawing } from '../../board/hit.ts';
 import { stageHandle } from '../../board/stageHandle.ts';
 import { isDrawingTool, useToolController } from '../../board/useToolController.ts';
+import { useDisplayedStep } from '../../timeline/displayedStep.ts';
 import { Drawings3D, Markers3D, Numpad3D, Tokens3D, TOKEN_Y } from './BoardObjects3D.tsx';
 import { MapMeshes } from './MapMeshes.tsx';
 
@@ -57,7 +58,8 @@ function CameraRig({ rig, azimuth, proj, handle }: { rig: Rig; azimuth: number; 
 /** Vista 2.5D: el mismo mapa y la misma estrategia que la vista 2D, en volumen. */
 export default function Scene3D() {
   const map = useMapStore((s) => s.map);
-  const step = useCurrentStep();
+  const step = useDisplayedStep();
+  const playing = useUiStore((s) => s.playback !== null);
   const flipped = useStrategyStore((s) => s.strategy.flipped);
   const allySide = useStrategyStore((s) => s.strategy.allySide);
   const parties = useStrategyStore((s) => s.strategy.parties);
@@ -125,7 +127,7 @@ export default function Scene3D() {
       pan.current = { x: e.clientX, y: e.clientY };
       return;
     }
-    if (e.button !== 0) return;
+    if (e.button !== 0 || playing) return;
     const p = groundAt(e.clientX, e.clientY);
     if (!p) return;
     wrapRef.current?.setPointerCapture(e.pointerId);

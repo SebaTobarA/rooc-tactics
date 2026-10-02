@@ -6,6 +6,7 @@ import { useEditorStore } from '../../store/editorStore.ts';
 import { useMapStore } from '../../store/mapStore.ts';
 import { lastStrategyId, newStrategy, useStrategyStore } from '../../store/strategyStore.ts';
 import { useUiStore } from '../../store/uiStore.ts';
+import { Timeline } from '../timeline/Timeline.tsx';
 import { EditorPanel } from '../map-editor/EditorPanel.tsx';
 import { BoardStage } from './BoardStage.tsx';
 import { HelpDialog } from './HelpDialog.tsx';
@@ -85,6 +86,7 @@ export function BoardPage({ mapId }: { mapId: string }) {
         </div>
         {editorActive ? <EditorPanel /> : <RightPanel />}
       </div>
+      {!editorActive && <Timeline />}
       <HelpDialog />
     </div>
   );
