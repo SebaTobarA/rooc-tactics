@@ -41,3 +41,69 @@ export function scatterForest(g: MapGeometry, aspect: number, cols: number, seed
   }
   return out;
 }
+
+export interface Puff {
+  pos: Vec2;
+  /** Radio en unidades del ancho del mapa. */
+  radius: number;
+  /** 0–1, para variar altura y forma. */
+  seed: number;
+}
+
+/** Nubes repartidas por fuera del contorno jugable, en tres franjas. */
+export function scatterClouds(bounds: Vec2[], aspect: number, seed = 11): Puff[] {
+  const rand = mulberry32(seed);
+  const c = { x: bounds.reduce((a, p) => a + p.x, 0) / bounds.length, y: bounds.reduce((a, p) => a + p.y, 0) / bounds.length };
+  const out: Puff[] = [];
+  bounds.forEach((p, i) => {
+    const q = bounds[(i + 1) % bounds.length];
+    const steps = Math.max(1, Math.round(Math.hypot(q.x - p.x, (q.y - p.y) / aspect) / 0.04));
+    for (let k = 0; k < steps; k++) {
+      const x = p.x + ((q.x - p.x) * k) / steps;
+      const y = p.y + ((q.y - p.y) * k) / steps;
+      const dx = x - c.x;
+      const dy = (y - c.y) / aspect;
+      const len = Math.hypot(dx, dy) || 1;
+      for (let layer = 0; layer < 3; layer++) {
+        const off = 0.035 + layer * 0.04 + rand() * 0.02;
+        out.push({
+          pos: { x: x + (dx / len) * off + (rand() - 0.5) * 0.025, y: y + ((dy / len) * off + (rand() - 0.5) * 0.025) * aspect },
+          radius: 0.026 + rand() * 0.026 + layer * 0.008,
+          seed: rand(),
+        });
+      }
+    }
+  });
+  return out;
+}
+
+export interface WallBlock {
+  pos: Vec2;
+  /** Ángulo del tramo de muro, en el plano normalizado corregido por aspecto. */
+  angle: number;
+  /** 0–1: altura y tono del bloque. */
+  seed: number;
+}
+
+/** Bloques de piedra a lo largo de un anillo, con huecos, para los muros de las ruinas. `spacing` en unidades del ancho del mapa. */
+export function wallBlocks(ring: Vec2[], aspect: number, spacing: number, rand: () => number): WallBlock[] {
+  const out: WallBlock[] = [];
+  let carry = 0;
+  for (let i = 0; i < ring.length; i++) {
+    const a = ring[i];
+    const b = ring[(i + 1) % ring.length];
+    const dx = b.x - a.x;
+    const dy = (b.y - a.y) / aspect;
+    const len = Math.hypot(dx, dy);
+    let d = carry;
+    while (d < len) {
+      const t = d / len;
+      const seed = rand();
+      // Un quinto de los bloques falta: son ruinas.
+      if (rand() > 0.2) out.push({ pos: { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }, angle: Math.atan2(dy, dx), seed });
+      d += spacing;
+    }
+    carry = d - len;
+  }
+  return out;
+}

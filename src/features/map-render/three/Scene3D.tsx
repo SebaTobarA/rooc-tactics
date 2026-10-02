@@ -196,11 +196,12 @@ export default function Scene3D() {
       onDrop={onDrop}
     >
       {/* Sin sombras y con dpr acotado: pensado para gráficas integradas. */}
-      <Canvas orthographic frameloop="demand" dpr={[1, 1.5]} gl={{ antialias: true, preserveDrawingBuffer: true, powerPreference: 'high-performance' }}>
+      <Canvas orthographic flat frameloop="demand" dpr={[1, 1.5]} gl={{ antialias: true, preserveDrawingBuffer: true, powerPreference: 'high-performance' }}>
         <color attach="background" args={[map.style.fog]} />
         <CameraRig rig={rig} azimuth={azimuth} proj={proj} handle={handle} />
-        <ambientLight intensity={1.5} />
-        <directionalLight position={[-40, 80, 30]} intensity={1.9} />
+        {/* Luz de cielo + sol cálido desde el noroeste (las sombras van horneadas en la textura del suelo). */}
+        <hemisphereLight args={['#ffffff', '#5d7a55', 1.7]} />
+        <directionalLight position={[-60, 90, -45]} intensity={1.7} color="#fff3d6" />
         {layers.map && <MapMeshes map={map} proj={proj} />}
         {layers.grid && <Numpad3D map={map} proj={proj} azimuth={azimuth} />}
         {layers.objectives && <Markers3D map={map} proj={proj} objectives={step.objectives} />}

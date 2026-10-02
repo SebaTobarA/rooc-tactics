@@ -32,24 +32,52 @@ function Label({ text, position, color, height = 1.6 }: { text: string; position
 function Pillar({ marker, objective, x, z }: { marker: Marker; objective?: ObjectiveState; x: number; z: number }) {
   const central = marker.kind === 'central-pillar';
   const status = objective?.status ?? 'pending';
-  const r = central ? 1.5 : 1;
-  const h = status === 'destroyed' ? 0.8 : central ? 6 : 4.2;
-  const color = status === 'pending' ? '#cbd5e1' : STATUS_COLORS[status];
+  const pending = status === 'pending';
+  const destroyed = status === 'destroyed';
+  const k = central ? 1.5 : 1;
+  const h = destroyed ? 1 : central ? 6.2 : 4.4;
+  const color = pending ? '#cbd5e1' : STATUS_COLORS[status];
+  const stone = '#b9c0c8';
+  const ghost = { transparent: pending, opacity: pending ? 0.4 : 1 };
+  const glow = status === 'active' ? 0.55 : status.startsWith('captured') ? 0.3 : 0;
   return (
-    <group position={[x, 0.24, z]}>
-      <mesh position-y={h / 2}>
-        <cylinderGeometry args={[r * 0.8, r, h, 8]} />
-        <meshLambertMaterial color={color} flatShading transparent={status === 'pending'} opacity={status === 'pending' ? 0.35 : 1}
-          emissive={status === 'active' ? '#f5b82e' : '#000000'} emissiveIntensity={status === 'active' ? 0.45 : 0} />
+    <group position={[x, 0.42, z]}>
+      {/* Basamento, fuste y capitel. */}
+      <mesh position-y={0.25}>
+        <cylinderGeometry args={[k * 1.25, k * 1.45, 0.5, 8]} />
+        <meshLambertMaterial color={stone} flatShading {...ghost} />
       </mesh>
+      <mesh position-y={0.5 + h / 2} rotation-z={destroyed ? 0.12 : 0}>
+        <cylinderGeometry args={[k * 0.62, k * 0.82, h, 8]} />
+        <meshLambertMaterial color={color} flatShading {...ghost} emissive={color} emissiveIntensity={glow * 0.5} />
+      </mesh>
+      {!destroyed && (
+        <>
+          <mesh position-y={0.5 + h + 0.2}>
+            <cylinderGeometry args={[k * 1.0, k * 0.66, 0.4, 8]} />
+            <meshLambertMaterial color={stone} flatShading {...ghost} />
+          </mesh>
+          {/* Cristal sobre el pilar: brilla cuando está activo o capturado. */}
+          <mesh position-y={0.5 + h + 1.5} scale={[k * 0.7, k * 1.15, k * 0.7]}>
+            <octahedronGeometry args={[1]} />
+            <meshLambertMaterial color={pending ? '#e2e8f0' : color} flatShading {...ghost} emissive={pending ? '#000000' : color} emissiveIntensity={glow} />
+          </mesh>
+        </>
+      )}
+      {destroyed && [0, 1, 2, 3].map((i) => (
+        <mesh key={i} position={[Math.cos(i * 1.7) * k * 1.9, 0.25, Math.sin(i * 1.7) * k * 1.9]} rotation={[i, i * 2, i * 0.5]}>
+          <boxGeometry args={[k * 0.8, k * 0.5, k * 0.6]} />
+          <meshLambertMaterial color={STATUS_COLORS.destroyed} flatShading />
+        </mesh>
+      ))}
       {status.startsWith('captured') && (
-        <mesh rotation-x={FLAT} position-y={0.05}>
-          <ringGeometry args={[r * 2.2, r * 2.8, 32]} />
-          <meshBasicMaterial color={color} transparent opacity={0.8} />
+        <mesh rotation-x={FLAT} position-y={0.08} renderOrder={4}>
+          <ringGeometry args={[k * 2.6, k * 3.3, 40]} />
+          <meshBasicMaterial color={color} transparent opacity={0.75} depthTest={false} />
         </mesh>
       )}
-      {objective?.tier && <Label text={objective.tier} position={[0, h + 1.2, 0]} color="#fde68a" height={2.2} />}
-      {objective?.timerSeconds != null && <Label text={formatTimer(objective.timerSeconds)} position={[0, h + (objective.tier ? 3 : 1.2), 0]} color="#fde68a" />}
+      {objective?.tier && <Label text={objective.tier} position={[0, h + 4.2, 0]} color="#fde68a" height={2.4} />}
+      {objective?.timerSeconds != null && <Label text={formatTimer(objective.timerSeconds)} position={[0, h + (objective.tier ? 6.2 : 4.2), 0]} color="#fde68a" />}
     </group>
   );
 }
@@ -59,7 +87,7 @@ export const Markers3D = memo(function Markers3D({ map, proj, objectives }: { ma
     <group>
       {map.markers.map((m) => {
         const [x, z] = proj.toGround(m.pos);
-        const label = <Label text={`${m.label}${m.confirmed ? '' : ' (?)'} · Z${zoneOf(m.pos, map.numpad)}`} position={[x, 0.3, z + 2.6]} height={1.2} />;
+        const label = <Label text={`${m.label}${m.confirmed ? '' : ' (?)'} · Z${zoneOf(m.pos, map.numpad)}`} position={[x, 0.3, z + 3]} height={1.2} />;
         if (m.kind === 'central-pillar' || m.kind === 'pillar-slot') {
           return <group key={m.id}><Pillar marker={m} objective={objectives.find((o) => o.markerId === m.id)} x={x} z={z} />{label}</group>;
         }
@@ -67,18 +95,29 @@ export const Markers3D = memo(function Markers3D({ map, proj, objectives }: { ma
           const color = SIDE_COLORS[m.side ?? 'green'];
           return (
             <group key={m.id}>
-              <mesh position={[x, 0.45, z]}>
-                <cylinderGeometry args={[2.1, 2.4, 0.5, 6]} />
-                <meshLambertMaterial color={color} flatShading />
-              </mesh>
-              <mesh position={[x, 1.3, z]}>
-                <boxGeometry args={[0.7, 1.2, 2.2]} />
-                <meshLambertMaterial color="#ffffff" />
-              </mesh>
-              <mesh position={[x, 1.3, z]}>
-                <boxGeometry args={[2.2, 1.2, 0.7]} />
-                <meshLambertMaterial color="#ffffff" />
-              </mesh>
+              <group position={[x, 0.44, z]}>
+                {/* Plataforma de la guild con estandarte. */}
+                <mesh position-y={0.2}>
+                  <cylinderGeometry args={[2.3, 2.6, 0.4, 6]} />
+                  <meshLambertMaterial color={color} flatShading />
+                </mesh>
+                <mesh position-y={0.5}>
+                  <cylinderGeometry args={[1.5, 1.7, 0.25, 6]} />
+                  <meshLambertMaterial color="#f8fafc" flatShading />
+                </mesh>
+                <mesh position={[0, 2.9, 0]}>
+                  <cylinderGeometry args={[0.12, 0.12, 4.8, 5]} />
+                  <meshLambertMaterial color="#5b4636" />
+                </mesh>
+                <mesh position={[0.95, 4.3, 0]}>
+                  <boxGeometry args={[1.8, 1.5, 0.12]} />
+                  <meshLambertMaterial color={color} emissive={color} emissiveIntensity={0.25} />
+                </mesh>
+                <mesh position={[0, 5.45, 0]}>
+                  <octahedronGeometry args={[0.35]} />
+                  <meshLambertMaterial color="#f5b82e" flatShading />
+                </mesh>
+              </group>
               {label}
             </group>
           );
@@ -86,10 +125,27 @@ export const Markers3D = memo(function Markers3D({ map, proj, objectives }: { ma
         const color = m.kind === 'point-green' ? '#a3d93a' : '#a970e6';
         return (
           <group key={m.id}>
-            <mesh position={[x, 1.6, z]}>
-              {m.kind === 'point-green' ? <octahedronGeometry args={[1.1]} /> : <cylinderGeometry args={[0.7, 1, 2.4, 6]} />}
-              <meshLambertMaterial color={color} flatShading />
+            <mesh position={[x, 0.2, z]}>
+              <cylinderGeometry args={[1.1, 1.3, 0.4, 8]} />
+              <meshLambertMaterial color="#b9c0c8" flatShading />
             </mesh>
+            {m.kind === 'point-green' ? (
+              <mesh position={[x, 2, z]} scale={[0.9, 1.3, 0.9]}>
+                <octahedronGeometry args={[1.1]} />
+                <meshLambertMaterial color={color} flatShading emissive={color} emissiveIntensity={0.25} />
+              </mesh>
+            ) : (
+              <>
+                <mesh position={[x, 1.6, z]}>
+                  <cylinderGeometry args={[0.7, 0.95, 2.4, 6]} />
+                  <meshLambertMaterial color={color} flatShading />
+                </mesh>
+                <mesh position={[x, 3.2, z]}>
+                  <coneGeometry args={[1.05, 1.1, 6]} />
+                  <meshLambertMaterial color="#7c4fc4" flatShading />
+                </mesh>
+              </>
+            )}
             {label}
           </group>
         );
