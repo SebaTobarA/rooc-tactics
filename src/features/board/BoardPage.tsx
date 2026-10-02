@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { maps } from '../../config/maps/index.ts';
 import { modeById } from '../../config/modes/index.ts';
 import { repository } from '../../data/StrategyRepository.ts';
@@ -6,6 +6,7 @@ import { useEditorStore } from '../../store/editorStore.ts';
 import { useMapStore } from '../../store/mapStore.ts';
 import { lastStrategyId, newStrategy, useStrategyStore } from '../../store/strategyStore.ts';
 import { useUiStore } from '../../store/uiStore.ts';
+import { ShareDialog } from '../share/ShareDialog.tsx';
 import { Timeline } from '../timeline/Timeline.tsx';
 import { EditorPanel } from '../map-editor/EditorPanel.tsx';
 import { BoardStage } from './BoardStage.tsx';
@@ -29,6 +30,7 @@ export function BoardPage({ mapId }: { mapId: string }) {
   const setViewMode = useUiStore((s) => s.setViewMode);
   // El editor de mapa trabaja siempre en 2D.
   const show3d = viewMode === '3d' && !editorActive;
+  const [shareOpen, setShareOpen] = useState(false);
   useBoardShortcuts();
 
   useEffect(() => {
@@ -70,6 +72,7 @@ export function BoardPage({ mapId }: { mapId: string }) {
         <button className={`${button} ${strategy.flipped ? active : ''}`} onClick={() => change((s) => ({ ...s, flipped: !s.flipped }))} title="Rota la vista 180°; no cambia los datos">
           Invertir lados
         </button>
+        <button className={button} disabled={editorActive} onClick={() => setShareOpen(true)}>Guardar y compartir</button>
         <button className={`${button} ${editorActive ? active : ''}`} onClick={() => setEditorActive(!editorActive)}>Editor de mapa</button>
       </div>
       <div className="flex min-h-0 flex-1">
@@ -88,6 +91,7 @@ export function BoardPage({ mapId }: { mapId: string }) {
       </div>
       {!editorActive && <Timeline />}
       <HelpDialog />
+      {shareOpen && <ShareDialog onClose={() => setShareOpen(false)} />}
     </div>
   );
 }

@@ -56,11 +56,15 @@ export function BoardStage() {
   };
   const pan = useRef<{ x: number; y: number; moved: boolean } | null>(null);
   const pinch = useRef<{ dist: number; cx: number; cy: number } | null>(null);
-  const fitted = useRef(false);
+  /** true mientras la vista siga encajada (sin zoom ni desplazamiento manual). */
+  const fitted = useRef(true);
 
   useEffect(() => {
     const el = containerRef.current!;
-    const ro = new ResizeObserver(() => setSize({ w: el.clientWidth, h: el.clientHeight }));
+    const measure = () => setSize({ w: el.clientWidth, h: el.clientHeight });
+    // Medición inmediata: ResizeObserver no avisa mientras la pestaña está en segundo plano.
+    measure();
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
@@ -69,15 +73,17 @@ export function BoardStage() {
     return () => void (stageHandle.current = null);
   }, []);
 
-  const fit = useCallback(() => setView(fitView(proj, size.w, size.h)), [proj, size]);
+  const fit = useCallback(() => {
+    fitted.current = true;
+    setView(fitView(proj, size.w, size.h));
+  }, [proj, size]);
+  // Mientras el usuario no mueva la vista, el mapa se mantiene encajado aunque cambie el tamaño del lienzo.
   useEffect(() => {
-    if (!fitted.current && size.w > 0) {
-      fitted.current = true;
-      fit();
-    }
-  }, [size, fit]);
+    if (fitted.current && size.w > 0) setView(fitView(proj, size.w, size.h));
+  }, [size, proj]);
 
   const zoomAt = useCallback((point: Vec2, factor: number) => {
+    fitted.current = false;
     setView((v) => {
       const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, v.scale * factor));
       const k = scale / v.scale;
@@ -187,6 +193,7 @@ export function BoardStage() {
       const dy = e.clientY - p.y;
       if (!p.moved && Math.hypot(dx, dy) < 4) return;
       p.moved = true;
+      fitted.current = false;
       p.x = e.clientX;
       p.y = e.clientY;
       setView((v) => ({ ...v, x: v.x + dx, y: v.y + dy }));

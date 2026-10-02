@@ -1,6 +1,7 @@
 import { maps } from './config/maps/index.ts';
 import { BoardPage } from './features/board/BoardPage.tsx';
 import { Home } from './features/home/Home.tsx';
+import { SharedLink } from './features/share/SharedLink.tsx';
 import { useHashRoute } from './lib/useHashRoute.ts';
 import { useUiStore } from './store/uiStore.ts';
 
@@ -17,7 +18,7 @@ export function App() {
           {theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
         </button>
       </header>
-      {board ? <BoardPage mapId={board.mapId} /> : <Home />}
+      {route.name === 'shared' ? <SharedLink data={route.data} /> : board ? <BoardPage mapId={board.mapId} /> : <Home />}
     </div>
   );
 }

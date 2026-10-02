@@ -64,6 +64,14 @@ function scheduleSave(get: () => StrategyState) {
 
 export const lastStrategyId = () => localStorage.getItem(LAST_KEY);
 
+/** Abre una estrategia y la deja guardada como la última usada. */
+export async function openAndSave(strategy: Strategy): Promise<void> {
+  clearTimeout(saveTimer);
+  useStrategyStore.getState().open(strategy);
+  await repository.save(strategy);
+  localStorage.setItem(LAST_KEY, strategy.id);
+}
+
 export const useStrategyStore = create<StrategyState>((set, get) => ({
   strategy: newStrategy('guild-league', 'vale-of-clash'),
   stepIndex: 0,
