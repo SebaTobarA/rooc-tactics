@@ -204,6 +204,8 @@ export interface Strategy {
   mapId: string;
   /** "Invertir lados": solo rota la vista 180°, no cambia los datos. */
   flipped: boolean;
+  /** Lado de mi guild: los tokens aliados usan su color y los enemigos el del otro lado. */
+  allySide: Side;
   roster: Player[];
   parties: Party[];
   steps: Step[];

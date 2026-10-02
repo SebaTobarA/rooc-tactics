@@ -1,39 +1,57 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Image as KonvaImage, Layer, Stage } from 'react-konva';
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
+import { Image as KonvaImage, Layer, Rect, Stage } from 'react-konva';
 import type Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import { roundVec } from '../../lib/geometry.ts';
 import { zoneOf } from '../../lib/numpad.ts';
 import { fitView, makeProjection, screenToWorld, type View } from '../../lib/projection.ts';
+import { addToken, moveItems } from '../../store/boardActions.ts';
 import { useEditorStore, type Selection } from '../../store/editorStore.ts';
 import { useMapStore } from '../../store/mapStore.ts';
+import { useCurrentStep, useStrategyStore } from '../../store/strategyStore.ts';
 import { useUiStore } from '../../store/uiStore.ts';
+import type { Vec2 } from '../../types/index.ts';
 import { EditorOverlay } from '../map-editor/EditorOverlay.tsx';
 import { addMarker, addPlaza, addPolygon } from '../map-editor/geometryOps.ts';
 import { MapShapes } from '../map-render/konva/MapShapes.tsx';
 import { Markers } from '../map-render/konva/Markers.tsx';
 import { NumpadGrid } from '../map-render/konva/NumpadGrid.tsx';
+import { Drawings, DrawingShape } from './konva/Drawings.tsx';
+import { Tokens } from './konva/Tokens.tsx';
+import { stageHandle } from './stageHandle.ts';
+import { isDrawingTool, useToolController } from './useToolController.ts';
 
 const MIN_SCALE = 0.2;
 const MAX_SCALE = 8;
+export const JOB_MIME = 'application/x-rooc-job';
 const isTyping = (e: KeyboardEvent) => e.target instanceof HTMLElement && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
 
-/** Lienzo 2D: mapa propio, grilla, marcadores y controles del editor, con zoom y desplazamiento. */
+/** Lienzo 2D: mapa propio, grilla, marcadores, tokens y dibujos, con zoom y desplazamiento. */
 export function BoardStage() {
   const map = useMapStore((s) => s.map);
-  const update = useMapStore((s) => s.update);
-  const checkpoint = useMapStore((s) => s.checkpoint);
-  const flipped = useUiStore((s) => s.flipped);
-  const showGrid = useUiStore((s) => s.showGrid);
-  const setCursor = useUiStore((s) => s.setCursor);
+  const updateMap = useMapStore((s) => s.update);
+  const checkpointMap = useMapStore((s) => s.checkpoint);
+  const step = useCurrentStep();
+  const flipped = useStrategyStore((s) => s.strategy.flipped);
+  const allySide = useStrategyStore((s) => s.strategy.allySide);
+  const parties = useStrategyStore((s) => s.strategy.parties);
+  const { tool, layers, selection, setSelection, setCursor } = useUiStore();
   const editor = useEditorStore();
 
   const proj = useMemo(() => makeProjection(map.aspect, flipped), [map.aspect, flipped]);
+  const controller = useToolController(map.aspect);
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [view, setView] = useState<View>({ scale: 1, x: 0, y: 0 });
   const [spaceDown, setSpaceDown] = useState(false);
+  const [band, setBandState] = useState<{ a: Vec2; b: Vec2 } | null>(null);
+  // El ref evita depender del re-render entre mousedown y mouseup.
+  const bandRef = useRef<{ a: Vec2; b: Vec2 } | null>(null);
+  const setBand = (b: { a: Vec2; b: Vec2 } | null) => {
+    bandRef.current = b;
+    setBandState(b);
+  };
   const pan = useRef<{ x: number; y: number; moved: boolean } | null>(null);
   const pinch = useRef<{ dist: number; cx: number; cy: number } | null>(null);
   const fitted = useRef(false);
@@ -44,6 +62,10 @@ export function BoardStage() {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+  useEffect(() => {
+    stageHandle.current = stageRef.current;
+    return () => void (stageHandle.current = null);
+  }, []);
 
   const fit = useCallback(() => setView(fitView(proj, size.w, size.h)), [proj, size]);
   useEffect(() => {
@@ -53,7 +75,7 @@ export function BoardStage() {
     }
   }, [size, fit]);
 
-  const zoomAt = useCallback((point: { x: number; y: number }, factor: number) => {
+  const zoomAt = useCallback((point: Vec2, factor: number) => {
     setView((v) => {
       const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, v.scale * factor));
       const k = scale / v.scale;
@@ -64,13 +86,13 @@ export function BoardStage() {
   const finishDraft = useCallback(() => {
     const { draft, select, setDraft, setTool } = useEditorStore.getState();
     if (draft.length < 3) return;
-    checkpoint();
+    checkpointMap();
     let created: Selection = null;
-    update((m) => (created = { type: 'polygon', ...addPolygon(m, draft) }));
+    updateMap((m) => (created = { type: 'polygon', ...addPolygon(m, draft) }));
     setDraft([]);
     setTool('select');
     select(created);
-  }, [checkpoint, update]);
+  }, [checkpointMap, updateMap]);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -83,10 +105,6 @@ export function BoardStage() {
       if (!ed.active) return;
       if (e.key === 'Escape') ed.draft.length ? ed.setDraft([]) : ed.select(null);
       if (e.key === 'Enter') finishDraft();
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-        e.preventDefault();
-        useMapStore.getState().undo();
-      }
     };
     const up = (e: KeyboardEvent) => e.code === 'Space' && setSpaceDown(false);
     window.addEventListener('keydown', down);
@@ -97,21 +115,68 @@ export function BoardStage() {
     };
   }, [finishDraft]);
 
-  const pointerNorm = () => {
+  const pointerWorld = () => {
     const p = stageRef.current?.getPointerPosition();
-    return p ? proj.toNorm(screenToWorld(p, view)) : null;
+    return p ? screenToWorld(p, view) : null;
+  };
+  const pointerNorm = () => {
+    const w = pointerWorld();
+    return w ? proj.toNorm(w) : null;
   };
 
-  // En el editor, las herramientas que colocan cosas usan el clic izquierdo; ahí se desplaza con espacio o botón central.
-  const placing = editor.active && editor.tool !== 'select';
+  const editing = editor.active;
+  // Herramientas que usan el clic izquierdo para colocar o dibujar; ahí se desplaza con espacio o botón central.
+  const placing = editing ? editor.tool !== 'select' : isDrawingTool(tool);
+  const selecting = !editing && tool === 'select';
+
+  const startPan = (clientX: number, clientY: number) => (pan.current = { x: clientX, y: clientY, moved: false });
 
   const onMouseDown = (e: KonvaEventObject<MouseEvent>) => {
     const { button, clientX, clientY } = e.evt;
-    if (button === 1 || (button === 0 && (spaceDown || !placing))) {
+    if (button === 1 || (button === 0 && (spaceDown || tool === 'pan' || (editing && !placing)))) {
       e.evt.preventDefault();
-      pan.current = { x: clientX, y: clientY, moved: false };
+      return startPan(clientX, clientY);
+    }
+    if (button !== 0 || editing) return;
+    if (selecting) {
+      const w = pointerWorld();
+      if (!w) return;
+      if (!e.evt.shiftKey) setSelection([]);
+      setBand({ a: w, b: w });
+    } else {
+      const p = pointerNorm();
+      if (p) controller.down(p);
     }
   };
+
+  const onMouseMove = () => {
+    const w = pointerWorld();
+    if (!w) return;
+    const p = proj.toNorm(w);
+    setCursor(p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1 ? p : null);
+    if (bandRef.current) setBand({ a: bandRef.current.a, b: w });
+    else if (!editing && !pan.current) controller.move(p);
+  };
+
+  const finishBand = () => {
+    const band = bandRef.current;
+    if (!band) return;
+    const [x0, x1] = [Math.min(band.a.x, band.b.x), Math.max(band.a.x, band.b.x)];
+    const [y0, y1] = [Math.min(band.a.y, band.b.y), Math.max(band.a.y, band.b.y)];
+    setBand(null);
+    if (x1 - x0 < 3 && y1 - y0 < 3) return;
+    const inside = (n: Vec2) => {
+      const w = proj.toWorld(n);
+      return w.x >= x0 && w.x <= x1 && w.y >= y0 && w.y <= y1;
+    };
+    const visible = (team: 'ally' | 'enemy') => (team === 'ally' ? layers.allies : layers.enemies);
+    const ids = [
+      ...step.tokens.filter((t) => visible(t.team) && inside(t.pos)).map((t) => t.id),
+      ...step.drawings.filter((d) => (d.tool === 'text' ? layers.notes : layers.drawings) && d.points.every(inside)).map((d) => d.id),
+    ];
+    setSelection([...new Set([...useUiStore.getState().selection, ...ids])]);
+  };
+
   useEffect(() => {
     const move = (e: MouseEvent) => {
       const p = pan.current;
@@ -136,14 +201,29 @@ export function BoardStage() {
 
   const onWheel = (e: KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault();
-    const p = stageRef.current!.getPointerPosition()!;
-    zoomAt(p, Math.exp(-e.evt.deltaY * (e.evt.ctrlKey ? 0.01 : 0.0015)));
+    zoomAt(stageRef.current!.getPointerPosition()!, Math.exp(-e.evt.deltaY * (e.evt.ctrlKey ? 0.01 : 0.0015)));
   };
 
+  const onTouchStart = (e: KonvaEventObject<TouchEvent>) => {
+    if (e.evt.touches.length !== 1 || editing) return;
+    const p = pointerNorm();
+    if (p && isDrawingTool(tool)) controller.down(p);
+    else if (tool === 'pan') startPan(e.evt.touches[0].clientX, e.evt.touches[0].clientY);
+  };
   const onTouchMove = (e: KonvaEventObject<TouchEvent>) => {
     const t = e.evt.touches;
-    if (t.length !== 2) return;
     e.evt.preventDefault();
+    if (t.length === 1) {
+      const p = pointerNorm();
+      if (pan.current) {
+        const dx = t[0].clientX - pan.current.x;
+        const dy = t[0].clientY - pan.current.y;
+        pan.current = { x: t[0].clientX, y: t[0].clientY, moved: true };
+        setView((v) => ({ ...v, x: v.x + dx, y: v.y + dy }));
+      } else if (p && !editing) controller.move(p);
+      return;
+    }
+    if (t.length !== 2) return;
     const rect = containerRef.current!.getBoundingClientRect();
     const cx = (t[0].clientX + t[1].clientX) / 2 - rect.left;
     const cy = (t[0].clientY + t[1].clientY) / 2 - rect.top;
@@ -155,21 +235,26 @@ export function BoardStage() {
     }
     pinch.current = { dist, cx, cy };
   };
+  const release = () => {
+    pinch.current = null;
+    finishBand();
+    controller.up();
+  };
 
-  const onClick = (e: KonvaEventObject<MouseEvent>) => {
-    if (!editor.active || e.evt.button !== 0 || pan.current?.moved || spaceDown) return;
+  const onEditorClick = (e: KonvaEventObject<MouseEvent>) => {
+    if (!editing || e.evt.button !== 0 || pan.current?.moved || spaceDown) return;
     const raw = pointerNorm();
     if (!raw) return;
     const p = roundVec(raw);
     if (editor.tool === 'add-marker') {
-      checkpoint();
+      checkpointMap();
       let id = '';
-      update((m) => (id = addMarker(m, editor.markerKind, p).id));
+      updateMap((m) => (id = addMarker(m, editor.markerKind, p).id));
       editor.select({ type: 'marker', id });
     } else if (editor.tool === 'add-plaza') {
-      checkpoint();
+      checkpointMap();
       let id = '';
-      update((m) => (id = addPlaza(m, p).id));
+      updateMap((m) => (id = addPlaza(m, p).id));
       editor.select({ type: 'plaza', id });
       editor.setTool('select');
     } else if (editor.tool === 'draw-polygon') {
@@ -179,29 +264,53 @@ export function BoardStage() {
     }
   };
 
-  const onPick = useCallback((selection: Selection) => {
+  const onPick = useCallback((sel: Selection) => {
     const ed = useEditorStore.getState();
-    if (ed.tool === 'select' && !pan.current?.moved) ed.select(selection);
+    if (ed.tool === 'select' && !pan.current?.moved) ed.select(sel);
   }, []);
-
-  const moveMarker = useCallback((id: string, pos: { x: number; y: number }) => {
-    update((m) => (m.markers.find((k) => k.id === id)!.pos = roundVec(pos)));
-  }, [update]);
+  const moveMarker = useCallback((id: string, pos: Vec2) => {
+    updateMap((m) => (m.markers.find((k) => k.id === id)!.pos = roundVec(pos)));
+  }, [updateMap]);
   const moveGridLine = useCallback((axis: 'cols' | 'rows', index: 0 | 1, value: number) => {
-    update((m) => {
+    updateMap((m) => {
       const pair = m.numpad[axis];
       const lo = index === 0 ? 0.02 : pair[0] + 0.02;
       const hi = index === 0 ? pair[1] - 0.02 : 0.98;
       pair[index] = Math.round(Math.min(hi, Math.max(lo, value)) * 1000) / 1000;
     });
-  }, [update]);
+  }, [updateMap]);
   const selectMarker = useCallback((id: string) => useEditorStore.getState().select({ type: 'marker', id }), []);
 
-  const showPhoto = editor.active && editor.showReference && editor.reference;
-  const cursorStyle = pan.current?.moved || spaceDown ? 'grab' : placing ? 'crosshair' : 'default';
+  // Tokens y dibujos: seleccionar y mover (todos los seleccionados a la vez).
+  const selectItem = useCallback((id: string, additive: boolean) => {
+    const cur = useUiStore.getState().selection;
+    if (additive) setSelection(cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]);
+    else if (!cur.includes(id)) setSelection([id]);
+  }, [setSelection]);
+  const startMove = useCallback(() => useStrategyStore.getState().checkpoint(), []);
+  const moveItem = useCallback((id: string, delta: Vec2) => {
+    const cur = useUiStore.getState().selection;
+    moveItems(cur.includes(id) ? cur : [id], delta);
+  }, []);
+
+  const onDrop = (e: DragEvent) => {
+    const jobId = e.dataTransfer.getData(JOB_MIME);
+    if (!jobId) return;
+    e.preventDefault();
+    const rect = containerRef.current!.getBoundingClientRect();
+    const p = proj.toNorm(screenToWorld({ x: e.clientX - rect.left, y: e.clientY - rect.top }, view));
+    if (p.x < 0 || p.x > 1 || p.y < 0 || p.y > 1) return;
+    setSelection([addToken(jobId, roundVec(p))]);
+  };
+
+  const showPhoto = editing && editor.showReference && editor.reference;
+  const cursorStyle = pan.current?.moved || spaceDown || tool === 'pan' ? 'grab' : placing ? 'crosshair' : 'default';
+  const tokens = step.tokens.filter((t) => (t.team === 'ally' ? layers.allies : layers.enemies));
+  const drawings = step.drawings.filter((d) => (d.tool === 'text' ? layers.notes : layers.drawings));
 
   return (
-    <div ref={containerRef} className="relative h-full w-full overflow-hidden" style={{ background: map.style.fog, cursor: cursorStyle }}>
+    <div ref={containerRef} className="relative h-full w-full overflow-hidden" style={{ background: map.style.fog, cursor: cursorStyle }}
+      onDragOver={(e) => e.dataTransfer.types.includes(JOB_MIME) && e.preventDefault()} onDrop={onDrop}>
       <Stage
         ref={stageRef}
         width={size.w}
@@ -211,16 +320,15 @@ export function BoardStage() {
         x={view.x}
         y={view.y}
         onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={release}
+        onMouseLeave={() => { setCursor(null); release(); }}
         onWheel={onWheel}
+        onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
-        onTouchEnd={() => (pinch.current = null)}
-        onClick={onClick}
-        onDblClick={() => editor.active && editor.tool === 'draw-polygon' && finishDraft()}
-        onMouseMove={() => {
-          const p = pointerNorm();
-          setCursor(p && p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1 ? p : null);
-        }}
-        onMouseLeave={() => setCursor(null)}
+        onTouchEnd={() => { pan.current = null; release(); }}
+        onClick={onEditorClick}
+        onDblClick={() => editing && editor.tool === 'draw-polygon' && finishDraft()}
         onContextMenu={(e) => e.evt.preventDefault()}
       >
         <Layer>
@@ -229,25 +337,38 @@ export function BoardStage() {
               rotation={flipped ? 180 : 0} x={flipped ? proj.w : 0} y={flipped ? proj.h : 0} />
           )}
         </Layer>
-        <Layer opacity={showPhoto ? editor.mapOpacity : 1}>
-          <MapShapes map={map} proj={proj} onPick={editor.active ? onPick : undefined} />
+        <Layer opacity={showPhoto ? editor.mapOpacity : 1} visible={layers.map || editing}>
+          <MapShapes map={map} proj={proj} onPick={editing ? onPick : undefined} />
         </Layer>
         <Layer>
-          {showGrid && (
-            <NumpadGrid grid={map.numpad} proj={proj} color={map.style.grid} editable={editor.active && editor.tool === 'select'}
-              onMoveStart={checkpoint} onMove={moveGridLine} />
+          {(layers.grid || editing) && (
+            <NumpadGrid grid={map.numpad} proj={proj} color={map.style.grid} editable={editing && editor.tool === 'select'}
+              onMoveStart={checkpointMap} onMove={moveGridLine} />
           )}
-          <Markers
-            markers={map.markers}
-            proj={proj}
-            grid={map.numpad}
-            editable={editor.active && editor.tool === 'select'}
-            selectedId={editor.selection?.type === 'marker' ? editor.selection.id : undefined}
-            onSelect={selectMarker}
-            onMoveStart={checkpoint}
-            onMove={moveMarker}
-          />
-          {editor.active && <EditorOverlay proj={proj} scale={view.scale} />}
+          {(layers.objectives || editing) && (
+            <Markers
+              markers={map.markers}
+              proj={proj}
+              grid={map.numpad}
+              objectives={step.objectives}
+              editable={editing && editor.tool === 'select'}
+              selectedId={editor.selection?.type === 'marker' ? editor.selection.id : undefined}
+              onSelect={selectMarker}
+              onMoveStart={checkpointMap}
+              onMove={moveMarker}
+            />
+          )}
+          {editing && <EditorOverlay proj={proj} scale={view.scale} />}
+        </Layer>
+        <Layer visible={!editing}>
+          <Drawings drawings={drawings} proj={proj} selection={selection} interactive={selecting} onSelect={selectItem} onMoveStart={startMove} onMove={moveItem} />
+          <Tokens tokens={tokens} proj={proj} grid={map.numpad} parties={parties} allySide={allySide} selection={selection}
+            interactive={selecting} onSelect={selectItem} onMoveStart={startMove} onMove={moveItem} />
+          {controller.draft && <DrawingShape d={controller.draft} proj={proj} />}
+          {band && (
+            <Rect x={Math.min(band.a.x, band.b.x)} y={Math.min(band.a.y, band.b.y)} width={Math.abs(band.b.x - band.a.x)} height={Math.abs(band.b.y - band.a.y)}
+              fill="rgba(56,189,248,0.15)" stroke="#38bdf8" strokeWidth={1 / view.scale} listening={false} />
+          )}
         </Layer>
       </Stage>
       <div className="absolute bottom-2 right-2 flex items-center gap-1 rounded-md bg-slate-900/80 p-1 text-xs text-slate-200 shadow">
@@ -261,7 +382,7 @@ export function BoardStage() {
   );
 }
 
-function CursorStatus() {
+export function CursorStatus() {
   const cursor = useUiStore((s) => s.cursor);
   const grid = useMapStore((s) => s.map.numpad);
   if (!cursor) return null;
