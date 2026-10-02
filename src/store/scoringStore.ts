@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { modeById } from '../config/modes/index.ts';
 import type { TierId } from '../types/index.ts';
 
-/** Valores de puntuación escritos en la web. Solo se usan donde la config del modo todavía dice TODO (null). */
+/** Borrador de puntos por tier escrito por el superadministrador. Manda sobre lo publicado hasta que se publique. */
 export interface Overrides {
   destroy: Record<TierId, number | null>;
   capture: Record<TierId, number | null>;
@@ -41,16 +41,16 @@ export interface TierPoints {
   provisional: boolean;
 }
 
-/** Puntos por tier ya resueltos: la config manda; lo escrito en la web rellena los TODO. */
+/** Puntos por tier ya resueltos: lo publicado, o el borrador del superadministrador si lo hay. */
 export function tierPoints(modeId: string, overrides: Overrides): { tiers: TierPoints[]; tickSeconds: number | null } {
   const scoring = modeById(modeId)?.scoring;
   return {
     tiers: (scoring?.tiers ?? []).map((t) => ({
       id: t.id,
-      destroy: t.destroyPoints ?? overrides.destroy[t.id] ?? null,
-      capturePerTick: t.capturePointsPerTick ?? overrides.capture[t.id] ?? null,
-      provisional: (t.destroyPoints == null && overrides.destroy[t.id] != null) || (t.capturePointsPerTick == null && overrides.capture[t.id] != null),
+      destroy: overrides.destroy[t.id] ?? t.destroyPoints,
+      capturePerTick: overrides.capture[t.id] ?? t.capturePointsPerTick,
+      provisional: (overrides.destroy[t.id] != null && overrides.destroy[t.id] !== t.destroyPoints) || (overrides.capture[t.id] != null && overrides.capture[t.id] !== t.capturePointsPerTick),
     })),
-    tickSeconds: scoring?.captureTickSeconds ?? overrides.tickSeconds,
+    tickSeconds: overrides.tickSeconds ?? scoring?.captureTickSeconds ?? null,
   };
 }

@@ -5,7 +5,8 @@ import { zoneOf } from '../../lib/numpad.ts';
 import { useEditorStore, type EditorTool } from '../../store/editorStore.ts';
 import { useMapStore } from '../../store/mapStore.ts';
 import type { MarkerKind, PlazaKind, PolygonKind, Side } from '../../types/index.ts';
-import { download, exportConfigTs, exportGeoJson } from './exportMap.ts';
+import { PublishButton } from '../admin/PublishButton.tsx';
+import { download, exportGeoJson } from './exportMap.ts';
 import { findPolygon, KIND_LABELS, MARKER_LABELS, polygonToPlaza, removePolygon, ringsOf, setPolygonKind, type EditableKind } from './geometryOps.ts';
 
 const input = 'w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900';
@@ -84,7 +85,8 @@ export function EditorPanel() {
       </div>
       <div className="border-b border-slate-200 p-3 dark:border-slate-800">
         <button className={`${button} w-full bg-sky-600 text-white hover:bg-sky-500 dark:hover:bg-sky-500`} onClick={() => ed.setActive(false)}>Listo: volver al tablero</button>
-        <p className="mt-1 text-xs text-slate-500">Arrastra los pilares y marcadores a su lugar. Los cambios se guardan solos en este navegador.</p>
+        <p className="mb-2 mt-1 text-xs text-slate-500">Arrastra los pilares y marcadores a su lugar. Los cambios quedan como borrador en este navegador hasta que los publiques.</p>
+        <PublishButton />
       </div>
 
       <Section title="Foto de referencia">
@@ -236,11 +238,11 @@ export function EditorPanel() {
       <Section title="Exportar">
         <div className="grid grid-cols-2 gap-1">
           <button className={button} onClick={() => download(`${map.id}.geo.json`, exportGeoJson(map))}>{map.id}.geo.json</button>
-          <button className={button} onClick={() => download(`${map.id}.ts`, exportConfigTs(map))}>{map.id}.ts</button>
+          <button className={button} onClick={() => download(`${map.id}.markers.json`, JSON.stringify({ numpad: map.numpad, markers: map.markers }, null, 2) + '\n')}>{map.id}.markers.json</button>
           <button className={button} disabled={!past.length} onClick={undo}>Deshacer</button>
           <button className={button} disabled={!dirty} onClick={() => confirm('¿Descartar los cambios locales y volver a la config del proyecto?') && (reset(), ed.select(null))}>Restablecer</button>
         </div>
-        <p className="text-xs text-slate-500">Reemplaza los archivos descargados en <code>src/config/maps/</code>. Los cambios se guardan en este navegador hasta que restablezcas.</p>
+        <p className="text-xs text-slate-500">Respaldo manual: los mismos archivos que «Publicar para todos» guarda en <code>src/config/maps/</code>. «Restablecer» descarta tu borrador.</p>
       </Section>
     </aside>
   );

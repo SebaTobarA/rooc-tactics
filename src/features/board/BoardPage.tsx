@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { maps } from '../../config/maps/index.ts';
 import { modeById } from '../../config/modes/index.ts';
 import { repository } from '../../data/StrategyRepository.ts';
+import { useIsAdmin } from '../../store/adminStore.ts';
 import { useEditorStore } from '../../store/editorStore.ts';
 import { useMapStore } from '../../store/mapStore.ts';
 import { lastStrategyId, newStrategy, useStrategyStore } from '../../store/strategyStore.ts';
@@ -43,6 +44,11 @@ export function BoardPage({ mapId }: { mapId: string }) {
   const notice = useUiStore((s) => s.notice);
   // El editor de mapa trabaja siempre en 2D.
   const show3d = viewMode === '3d' && !editorActive;
+  const admin = useIsAdmin();
+  // Si se cierra la sesión con el editor abierto, se vuelve al tablero.
+  useEffect(() => {
+    if (!admin && editorActive) setEditorActive(false);
+  }, [admin, editorActive, setEditorActive]);
   const [shareOpen, setShareOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   useBoardShortcuts();
@@ -88,7 +94,7 @@ export function BoardPage({ mapId }: { mapId: string }) {
         </button>
         <button className={button} disabled={editorActive} onClick={() => setAiOpen(true)} title="Arma un encargo para tu chat de Claude y convierte su respuesta en pasos">Asistente IA</button>
         <button className={button} disabled={editorActive} onClick={() => setShareOpen(true)}>Guardar y compartir</button>
-        <button className={`${button} ${editorActive ? active : ''}`} onClick={() => setEditorActive(!editorActive)}>Editor de mapa</button>
+        {admin && <button className={`${button} ${editorActive ? active : ''}`} onClick={() => setEditorActive(!editorActive)}>Editor de mapa</button>}
       </div>
       <div className="flex min-h-0 flex-1">
         {!editorActive && <Toolbar />}

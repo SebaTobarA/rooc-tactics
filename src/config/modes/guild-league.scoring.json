@@ -1,0 +1,8 @@
+{
+  "tiers": [
+    { "id": "B", "destroyPoints": null, "capturePointsPerTick": null },
+    { "id": "A", "destroyPoints": null, "capturePointsPerTick": null },
+    { "id": "S", "destroyPoints": null, "capturePointsPerTick": null }
+  ],
+  "captureTickSeconds": null
+}

@@ -54,3 +54,13 @@ El sitio no tiene servidor, así que un enlace corto apunta a un archivo del rep
 2. Guarda el archivo como `public/strategies/<nombre>.json` (solo letras, números y guiones).
 3. Agrega una entrada en `public/strategies/index.json` con `slug`, `name`, `modeId`, `mapId` y `updatedAt`.
 4. Haz commit y push. El enlace queda en `https://sebatobara.github.io/rooc-tactics/#/p/<nombre>`.
+
+## Superadministrador
+
+Solo el superadministrador edita los mapas. No hay servidor: se ingresa (botón «Administrador») con un token de GitHub de acceso restringido a este repositorio con permiso «Contents: Read and write». Al pulsar «Publicar para todos», la web guarda en un commit:
+
+- `src/config/maps/<mapa>.geo.json` (terreno y plazas)
+- `src/config/maps/<mapa>.markers.json` (pilares con su tier, respawns, puntos y grilla)
+- `src/config/modes/<modo>.scoring.json` (puntos por tier)
+
+El despliegue corre solo y las pestañas abiertas se actualizan. Ojo: `npm run generate:map` vuelve a generar el `.geo.json` y pisa los retoques hechos desde la web.

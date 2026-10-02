@@ -42,8 +42,14 @@ export const useMapStore = create<MapState>((set, get) => ({
   load: (id) => {
     const base = maps[id];
     if (!base) return;
-    const local = readLocal(id);
-    set({ map: local ?? base, dirty: local !== null, past: [] });
+    let local = readLocal(id);
+    // Tras publicar, la copia local queda igual a la config: se descarta para volver a seguir lo publicado.
+    if (local && JSON.stringify([local.geometry, local.markers, local.numpad]) === JSON.stringify([base.geometry, base.markers, base.numpad])) {
+      localStorage.removeItem(storageKey(id));
+      local = null;
+    }
+    // El estilo y demás campos siempre salen de la config; lo editable es geometría, marcadores y grilla.
+    set({ map: local ? { ...base, geometry: local.geometry, markers: local.markers, numpad: local.numpad } : base, dirty: local !== null, past: [] });
   },
   checkpoint: () => set((s) => ({ past: [...s.past.slice(-MAX_UNDO + 1), s.map] })),
   update: (fn) => {

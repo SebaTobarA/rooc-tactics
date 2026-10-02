@@ -29,9 +29,9 @@ export interface Resolved {
   destroy: Record<TierId, number | null>;
   capture: Record<TierId, number | null>;
   tickSeconds: number | null;
-  /** Valores que la config aún no tiene (TODO). */
+  /** Valores que todavía nadie ha cargado. */
   todo: string[];
-  /** true si algún valor usado es provisional y no de la config. */
+  /** true si algún valor usado es un borrador sin publicar. */
   provisional: boolean;
 }
 
@@ -40,15 +40,15 @@ export const emptyGuild = (scoring: ModeScoring): GuildInput => {
   return { destroyed: zero(), captureSeconds: zero(), zonesHeld: zero(), kills: 0 };
 };
 
-/** Combina config y valores provisionales: la config siempre manda. */
+/** Valores de puntuación en uso: lo publicado, o el borrador del superadministrador si lo hay. */
 export function resolve(scoring: ModeScoring, overrides: Overrides): Resolved {
   const todo: string[] = [];
   let provisional = false;
   const pick = (configured: number | null, override: number | null | undefined, label: string) => {
-    if (configured != null) return configured;
-    todo.push(label);
-    if (override != null) provisional = true;
-    return override ?? null;
+    const value = override ?? configured;
+    if (value == null) todo.push(label);
+    if (override != null && override !== configured) provisional = true;
+    return value;
   };
   const destroy: Resolved['destroy'] = {};
   const capture: Resolved['capture'] = {};

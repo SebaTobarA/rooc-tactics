@@ -1,4 +1,7 @@
-import type { ModeConfig } from '../../types/index.ts';
+import type { ModeConfig, TierScoring } from '../../types/index.ts';
+import raw from './guild-league.scoring.json';
+
+const values = raw as { tiers: TierScoring[]; captureTickSeconds: number | null };
 
 export const guildLeague: ModeConfig = {
   id: 'guild-league',
@@ -16,13 +19,8 @@ export const guildLeague: ModeConfig = {
   scoring: {
     winScore: 3000,
     killPoints: 1,
-    // TODO: cargar los valores reales desde las tablas del juego (assets-src/pillar-points-*.webp).
-    tiers: [
-      { id: 'B', destroyPoints: null, capturePointsPerTick: null },
-      { id: 'A', destroyPoints: null, capturePointsPerTick: null },
-      { id: 'S', destroyPoints: null, capturePointsPerTick: null },
-    ],
-    // TODO: cada cuántos segundos suma puntos una zona capturada.
-    captureTickSeconds: null,
+    // null = TODO. Los valores los carga el superadministrador desde la web (pestaña Objet.) y quedan en guild-league.scoring.json.
+    tiers: values.tiers,
+    captureTickSeconds: values.captureTickSeconds,
   },
 };

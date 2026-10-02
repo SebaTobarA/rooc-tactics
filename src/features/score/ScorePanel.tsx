@@ -30,7 +30,7 @@ export function ScorePanel() {
     }
   }, []);
   const [data, setData] = useState<ScoreInput | null>(saved?.input ?? null);
-  const { overrides, setOverrides } = useScoringStore();
+  const overrides = useScoringStore((st) => st.overrides);
   const scoreInput = data ?? (scoring ? { green: emptyGuild(scoring), red: emptyGuild(scoring) } : null);
   useEffect(() => {
     if (scoreInput) localStorage.setItem(KEY, JSON.stringify({ input: scoreInput }));
@@ -42,45 +42,38 @@ export function ScorePanel() {
   const scores = { green: scoreGuild(scoring, r, scoreInput.green), red: scoreGuild(scoring, r, scoreInput.red) };
   const diff = scores.green.total - scores.red.total;
   const edit = (side: Side, fn: (g: GuildInput) => GuildInput) => setData({ ...scoreInput, [side]: fn(scoreInput[side]) });
-  const missing = r.todo.filter((label) => {
-    const tier = label.split(' ').pop()!;
-    if (label.startsWith('destrucción')) return r.destroy[tier] == null;
-    if (label.startsWith('captura')) return r.capture[tier] == null;
-    return r.tickSeconds == null;
-  });
 
   return (
     <div className="space-y-3 p-3 text-sm">
       {r.todo.length > 0 && (
         <div className="rounded-md border border-amber-500/50 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-200" role="alert">
-          <p className="font-semibold">TODO: faltan valores en la config del modo</p>
-          <p>Sin cargar desde las tablas del juego: {r.todo.join(', ')}. Complétalos en <code>src/config/modes/guild-league.ts</code>.</p>
-          {missing.length > 0 && <p className="mt-1">Lo que falta cuenta como 0, así que el total está incompleto.</p>}
-          {r.provisional && <p className="mt-1 font-semibold">El total usa valores provisionales escritos abajo, no valores de la config.</p>}
+          <p className="font-semibold">Faltan valores de puntuación</p>
+          <p>Sin cargar: {r.todo.join(', ')}. Lo que falta cuenta como 0, así que el total está incompleto. Los carga el superadministrador en la pestaña Objet.</p>
         </div>
       )}
+      {r.provisional && <p className="rounded bg-sky-500/15 px-2 py-1 text-xs">Estás usando tu borrador de puntos por tier, que aún no se ha publicado.</p>}
 
       <section>
         <h3 className={heading}>Valores por tier</h3>
         <table className="mt-1 w-full text-xs">
           <thead>
-            <tr className="text-slate-500"><th className="text-left font-normal">Tier</th><th className="font-normal">Destruir</th><th className="font-normal">Captura / tick</th></tr>
+            <tr className="text-slate-500"><th className="text-left font-normal">Tier</th><th className="text-right font-normal">Destruir</th><th className="text-right font-normal">Captura / tick</th></tr>
           </thead>
           <tbody>
             {scoring.tiers.map((t) => (
               <tr key={t.id}>
                 <td className="font-semibold">{t.id}</td>
-                <td className="p-0.5">{t.destroyPoints != null ? <span className="block text-right">{t.destroyPoints}</span> : <Num label={`Puntos provisionales por destruir tier ${t.id}`} value={overrides.destroy[t.id] ?? null} onChange={(v) => setOverrides({ ...overrides, destroy: { ...overrides.destroy, [t.id]: v } })} />}</td>
-                <td className="p-0.5">{t.capturePointsPerTick != null ? <span className="block text-right">{t.capturePointsPerTick}</span> : <Num label={`Puntos provisionales de captura por tick tier ${t.id}`} value={overrides.capture[t.id] ?? null} onChange={(v) => setOverrides({ ...overrides, capture: { ...overrides.capture, [t.id]: v } })} />}</td>
+                <td className="text-right">{r.destroy[t.id] ?? 'sin dato'}</td>
+                <td className="text-right">{r.capture[t.id] ?? 'sin dato'}</td>
               </tr>
             ))}
             <tr>
               <td colSpan={2} className="text-slate-500">Segundos por tick</td>
-              <td className="p-0.5">{scoring.captureTickSeconds != null ? <span className="block text-right">{scoring.captureTickSeconds}</span> : <Num label="Segundos provisionales por tick" value={overrides.tickSeconds} onChange={(v) => setOverrides({ ...overrides, tickSeconds: v })} />}</td>
+              <td className="text-right">{r.tickSeconds ?? 'sin dato'}</td>
             </tr>
           </tbody>
         </table>
-        <p className="mt-1 text-xs text-slate-500">Kill = {scoring.killPoints} punto. Gana quien llegue a {scoring.winScore}. Los campos editables se guardan en este navegador y solo se usan donde la config dice TODO. También se editan en la pestaña Objet.</p>
+        <p className="mt-1 text-xs text-slate-500">Kill = {scoring.killPoints} punto. Gana quien llegue a {scoring.winScore}.</p>
       </section>
 
       {SIDES.map(({ id, name }) => {
