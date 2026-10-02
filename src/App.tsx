@@ -1,4 +1,5 @@
 import { maps } from './config/maps/index.ts';
+import { ErrorBoundary } from './features/board/ErrorBoundary.tsx';
 import { BoardPage } from './features/board/BoardPage.tsx';
 import { Home } from './features/home/Home.tsx';
 import { SharedLink } from './features/share/SharedLink.tsx';
@@ -18,7 +19,9 @@ export function App() {
           {theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
         </button>
       </header>
-      {route.name === 'shared' ? <SharedLink data={route.data} /> : board ? <BoardPage mapId={board.mapId} /> : <Home />}
+      <ErrorBoundary label="la página">
+        {route.name === 'shared' ? <SharedLink data={route.data} /> : board ? <BoardPage mapId={board.mapId} /> : <Home />}
+      </ErrorBoundary>
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { ShareDialog } from '../share/ShareDialog.tsx';
 import { Timeline } from '../timeline/Timeline.tsx';
 import { EditorPanel } from '../map-editor/EditorPanel.tsx';
 import { BoardStage } from './BoardStage.tsx';
+import { ErrorBoundary } from './ErrorBoundary.tsx';
 import { HelpDialog } from './HelpDialog.tsx';
 import { Legend } from './Legend.tsx';
 import { RightPanel } from './RightPanel.tsx';
@@ -79,9 +80,11 @@ export function BoardPage({ mapId }: { mapId: string }) {
         {!editorActive && <Toolbar />}
         <div className="relative min-w-0 flex-1">
           {show3d ? (
-            <Suspense fallback={<p className="p-4 text-sm text-slate-400">Cargando la vista 2.5D…</p>}>
-              <Scene3D />
-            </Suspense>
+            <ErrorBoundary label="la vista 2.5D" fallbackAction={{ text: 'Volver a la vista 2D', run: () => setViewMode('2d') }}>
+              <Suspense fallback={<p className="p-4 text-sm text-slate-400">Cargando la vista 2.5D…</p>}>
+                <Scene3D />
+              </Suspense>
+            </ErrorBoundary>
           ) : (
             <BoardStage />
           )}
