@@ -19,7 +19,16 @@ import { active, button } from './ui.ts';
 import { useBoardShortcuts } from './useBoardShortcuts.ts';
 
 // Three.js se carga solo al abrir la vista 2.5D.
-const Scene3D = lazy(() => import('../map-render/three/Scene3D.tsx'));
+const Scene3D = lazy(() =>
+  import('../map-render/three/Scene3D.tsx').catch((error: unknown) => {
+    // Tras publicar una versión nueva, el archivo que pide una pestaña antigua ya no existe: se recarga una sola vez.
+    if (!sessionStorage.getItem('rooc-tactics:reloaded')) {
+      sessionStorage.setItem('rooc-tactics:reloaded', '1');
+      location.reload();
+    }
+    throw error;
+  }),
+);
 
 export function BoardPage({ mapId }: { mapId: string }) {
   const map = useMapStore((s) => s.map);
