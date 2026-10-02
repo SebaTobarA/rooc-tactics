@@ -1,6 +1,6 @@
 import { memo, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { pointInPolygon, pointInRing } from '../../../lib/geometry.ts';
+import { scatterForest } from '../../../lib/forest.ts';
 import type { Projection3 } from '../../../lib/projection.ts';
 import type { MapConfig, Polygon, Vec2 } from '../../../types/index.ts';
 
@@ -14,15 +14,6 @@ function toShape(points: Vec2[], holes: Vec2[][], proj: Projection3): THREE.Shap
   const shape = new THREE.Shape(ring(points));
   shape.holes = holes.map((h) => new THREE.Path(ring(h)));
   return shape;
-}
-
-function mulberry32(seed: number) {
-  return () => {
-    seed = (seed + 0x6d2b79f5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
 }
 
 interface Props {
@@ -54,37 +45,21 @@ export const MapMeshes = memo(function MapMeshes({ map, proj }: Props) {
   }, [g, proj, forestHeight]);
 
   // Copas de árboles: grilla con desorden determinista sobre todo lo que no es transitable, agua ni plaza.
-  const trees = useMemo(() => {
-    const rand = mulberry32(7);
-    const out: { x: number; z: number; s: number; shade: number }[] = [];
-    const step = 2.7;
-    for (let z = -proj.d / 2; z < proj.d / 2; z += step) {
-      for (let x = -proj.w / 2; x < proj.w / 2; x += step) {
-        const px = x + (rand() - 0.5) * step;
-        const pz = z + (rand() - 0.5) * step;
-        const s = 0.7 + rand() * 0.7;
-        const shade = rand();
-        const n = proj.toNorm(px, pz);
-        if (!pointInRing(n, g.bounds)) continue;
-        if (g.walkable.some((p) => pointInPolygon(n, p)) || g.water.some((p) => pointInRing(n, p.points))) continue;
-        if (g.obstacles.some((o) => o.kind !== 'forest' && pointInRing(n, o.points))) continue;
-        out.push({ x: px, z: pz, s, shade });
-      }
-    }
-    return out;
-  }, [g, proj]);
+  const trees = useMemo(
+    () => scatterForest(g, map.aspect, 37).map((t) => { const [x, z] = proj.toGround(t.pos); return { x, z, s: t.size, shade: t.shade }; }),
+    [g, map.aspect, proj],
+  );
 
   const treeRef = useRef<THREE.InstancedMesh>(null);
   useLayoutEffect(() => {
     const mesh = treeRef.current;
     if (!mesh) return;
     const m = new THREE.Matrix4();
-    const base = new THREE.Color(style.forest);
-    const dark = new THREE.Color(style.forestShade);
+    const tones = style.canopy.map((c) => new THREE.Color(c));
     trees.forEach((t, i) => {
       m.compose(new THREE.Vector3(t.x, forestHeight + 1.3 * t.s, t.z), new THREE.Quaternion(), new THREE.Vector3(t.s, t.s, t.s));
       mesh.setMatrixAt(i, m);
-      mesh.setColorAt(i, base.clone().lerp(dark, t.shade * 0.7).offsetHSL(0, 0, 0.06));
+      mesh.setColorAt(i, tones[Math.floor(t.shade * tones.length)]);
     });
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;

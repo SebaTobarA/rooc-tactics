@@ -94,6 +94,15 @@ export interface MapStyle {
   grid: string;
   /** Opacidad de la textura de ruido (0 = sin textura). */
   textureOpacity: number;
+  /** Pasto del borde de los senderos (la arena queda al centro). */
+  grass: string;
+  /** Muros de piedra de las ruinas. */
+  wall: string;
+  /** Nubes del borde del mapa. */
+  cloud: string;
+  /** Tonos de las copas de los árboles. */
+  canopy: string[];
+  canopyShade: string;
 }
 
 /** Transformación afín sin rotación: destino = origen * s + t (en coordenadas normalizadas). */
