@@ -2,7 +2,7 @@ import { memo, useMemo } from 'react';
 import { Circle, Group, Line, Path, Rect, Shape } from 'react-konva';
 import type { Context } from 'konva/lib/Context';
 import { scatterForest, mulberry32 } from '../../../lib/forest.ts';
-import { centroid, ringsToPath } from '../../../lib/geometry.ts';
+import { ringsToPath } from '../../../lib/geometry.ts';
 import { isWalkable } from '../../../lib/walk.ts';
 import type { Projection } from '../../../lib/projection.ts';
 import type { PolyList, Selection } from '../../../store/editorStore.ts';
@@ -45,58 +45,66 @@ export const MapShapes = memo(function MapShapes({ map, proj, onPick }: Props) {
   const d = (p: Polygon) => ringsToPath([p.points, ...(p.holes ?? [])], proj);
   const pick = (list: PolyList, id: string) => (onPick ? () => onPick({ type: 'polygon', list, id }) : undefined);
   const boundsPath = useMemo(() => ringsToPath([g.bounds], proj), [g.bounds, proj]);
-  const boundsWorld = useMemo(() => g.bounds.map(proj.toWorld), [g.bounds, proj]);
-  const clipBounds = (ctx: Context) => {
+  // El dibujo llena todo el rectángulo del mapa: lo que queda fuera del contorno jugable también es bosque.
+  const clipRect = (ctx: Context) => {
     ctx.beginPath();
-    boundsWorld.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+    ctx.rect(0, 0, proj.w, proj.h);
     ctx.closePath();
   };
   const rockFill = (p: Polygon) => (p.kind === 'rock' ? style.rock : p.kind === 'ruin' ? style.plazaStroke : style.forestShade);
 
   // Copas de árboles, ordenadas de arriba hacia abajo para que se solapen como un bosque visto desde el cielo.
   const trees = useMemo(
-    () => scatterForest(g, map.aspect, 62).map((t) => ({ ...proj.toWorld(t.pos), r: 9 + t.size * 6, tone: Math.floor(t.shade * style.canopy.length) })).sort((a, b) => a.y - b.y),
+    () => scatterForest(g, map.aspect, 62, 7, 'rect').map((t) => ({ ...proj.toWorld(t.pos), r: 9 + t.size * 6, tone: Math.floor(t.shade * style.canopy.length) })).sort((a, b) => a.y - b.y),
     [g, map.aspect, proj, style.canopy.length],
   );
 
   const markerWorld = useMemo(() => map.markers.map((m) => proj.toWorld(m.pos)), [map.markers, proj]);
 
-  // Nubes: bolas blancas repartidas por fuera del contorno, que lo tapan un poco como en el mapa original.
+  // Nubes: un marco alrededor del rectángulo del mapa que se mete un poco en el bosque del borde,
+  // sin tapar nunca senderos, pilares ni respawns.
   const clouds = useMemo(() => {
     const rand = mulberry32(11);
-    const c = proj.toWorld(centroid(g.bounds));
     const out: { x: number; y: number; r: number }[] = [];
-    boundsWorld.forEach((p, i) => {
-      const q = boundsWorld[(i + 1) % boundsWorld.length];
-      const steps = Math.max(1, Math.round(Math.hypot(q.x - p.x, q.y - p.y) / 34));
-      for (let k = 0; k < steps; k++) {
-        const x = p.x + ((q.x - p.x) * k) / steps;
-        const y = p.y + ((q.y - p.y) * k) / steps;
-        const len = Math.hypot(x - c.x, y - c.y) || 1;
+    const { w, h } = proj;
+    const edges: [number, number, number, number, number, number][] = [
+      // x0, y0, x1, y1, normal x, normal y
+      [0, 0, w, 0, 0, -1],
+      [w, 0, w, h, 1, 0],
+      [w, h, 0, h, 0, 1],
+      [0, h, 0, 0, -1, 0],
+    ];
+    for (const [x0, y0, x1, y1, nx, ny] of edges) {
+      const len = Math.hypot(x1 - x0, y1 - y0);
+      const steps = Math.ceil(len / 30);
+      for (let k = 0; k <= steps; k++) {
+        const t = k / steps;
         for (let layer = 0; layer < 3; layer++) {
-          const out_ = 34 + layer * 40 + rand() * 24;
-          const puff = { x: x + ((x - c.x) / len) * out_ + (rand() - 0.5) * 30, y: y + ((y - c.y) / len) * out_ + (rand() - 0.5) * 30, r: 26 + rand() * 30 + layer * 8 };
-          // Una nube nunca tapa terreno transitable, pilares ni respawns: si los pisa (contando su borde difuso), no se dibuja.
-          const reach = puff.r + 24;
+          const r = 28 + rand() * 30 + layer * 14;
+          // La primera franja entra en el mapa; las siguientes quedan afuera.
+          const offset = -r * 0.55 + layer * 46 + rand() * 16;
+          const puff = { x: x0 + (x1 - x0) * t + nx * offset + (rand() - 0.5) * 24, y: y0 + (y1 - y0) * t + ny * offset + (rand() - 0.5) * 24, r };
+          const reach = puff.r + 18;
           const covers =
-            [0, 1, 2, 3, 4, 5, 6, 7].some((k) => isWalkable(proj.toNorm({ x: puff.x + Math.cos((k * Math.PI) / 4) * reach, y: puff.y + Math.sin((k * Math.PI) / 4) * reach }), g)) ||
+            [0, 1, 2, 3, 4, 5, 6, 7].some((q) => isWalkable(proj.toNorm({ x: puff.x + Math.cos((q * Math.PI) / 4) * reach, y: puff.y + Math.sin((q * Math.PI) / 4) * reach }), g)) ||
             isWalkable(proj.toNorm(puff), g) ||
             markerWorld.some((m) => Math.hypot(m.x - puff.x, m.y - puff.y) < reach + 22);
-          if (!covers) out.push(puff);
+          if (!covers || layer > 0) out.push(puff);
         }
       }
-    });
+    }
     return out;
-  }, [boundsWorld, g, markerWorld, proj]);
+  }, [g, markerWorld, proj]);
 
   // Los agujeros de lo transitable son los brazos de las espirales: ahí van los muros de las ruinas.
   const wallPath = useMemo(() => ringsToPath(g.walkable.flatMap((p) => p.holes ?? []), proj), [g.walkable, proj]);
 
   return (
     <Group listening={listening}>
-      <Path data={boundsPath} fill={style.forest} stroke={style.forestShade} strokeWidth={3} lineJoin="round"
-        shadowColor={style.forestShade} shadowBlur={28} shadowOpacity={0.9} onClick={pick('bounds', 'bounds')} />
-      <Group clipFunc={clipBounds}>
+      <Rect width={proj.w} height={proj.h} fill={style.forest} listening={false} />
+      {/* El contorno jugable solo se ve y se selecciona en el editor de mapa. */}
+      {onPick && <Path data={boundsPath} stroke="#f472b6" strokeWidth={2} dash={[8, 6]} opacity={0.7} hitStrokeWidth={12} onClick={pick('bounds', 'bounds')} />}
+      <Group clipFunc={clipRect}>
         {g.obstacles.filter((p) => p.kind === 'forest').map((p) => (
           <Path key={p.id} data={d(p)} fill={style.forestShade} opacity={0.28} fillRule="evenodd" onClick={pick('obstacles', p.id)} />
         ))}

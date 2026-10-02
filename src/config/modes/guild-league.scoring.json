@@ -1,8 +1,8 @@
 {
   "tiers": [
-    { "id": "B", "destroyPoints": null, "capturePointsPerTick": null },
-    { "id": "A", "destroyPoints": null, "capturePointsPerTick": null },
-    { "id": "S", "destroyPoints": null, "capturePointsPerTick": null }
+    { "id": "B", "destroyPoints": 20, "capturePointsPerTick": 4, "maxTicks": 20 },
+    { "id": "A", "destroyPoints": 30, "capturePointsPerTick": 6, "maxTicks": 20 },
+    { "id": "S", "destroyPoints": 50, "capturePointsPerTick": 6, "maxTicks": 30 }
   ],
-  "captureTickSeconds": null
+  "captureTickSeconds": 3
 }

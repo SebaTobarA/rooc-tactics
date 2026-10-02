@@ -3,6 +3,8 @@ import raw from './guild-league.scoring.json';
 
 const values = raw as { tiers: TierScoring[]; captureTickSeconds: number | null };
 
+// Tabla del Main Field confirmada en el juego. Lo que sigue sin confirmar queda en pendingRules y no entra en los cálculos.
+
 export const guildLeague: ModeConfig = {
   id: 'guild-league',
   name: 'Guild League',
@@ -19,8 +21,13 @@ export const guildLeague: ModeConfig = {
   scoring: {
     winScore: 3000,
     killPoints: 1,
-    // null = TODO. Los valores los carga el superadministrador desde la web (pestaña Objet.) y quedan en guild-league.scoring.json.
+    // Los valores viven en guild-league.scoring.json; el superadministrador los puede corregir y publicar desde la web.
     tiers: values.tiers,
     captureTickSeconds: values.captureTickSeconds,
+    pendingRules: [
+      '¿Los pilares reaparecen después de agotarse? ¿Cada cuánto, por tier?',
+      '¿Qué pasa con la captura cuando otra guild entra a la zona: se pausa, se reinicia o se pierde el progreso?',
+      '¿El Sub-Battlefield tiene puntuación propia?',
+    ],
   },
 };

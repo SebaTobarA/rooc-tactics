@@ -19,7 +19,7 @@ export function pendingChanges(): { map: boolean; scoring: boolean } {
     (resolved.tickSeconds !== scoring.captureTickSeconds ||
       resolved.tiers.some((t) => {
         const c = scoring.tiers.find((x) => x.id === t.id);
-        return t.destroy !== c?.destroyPoints || t.capturePerTick !== c?.capturePointsPerTick;
+        return t.destroy !== c?.destroyPoints || t.capturePerTick !== c?.capturePointsPerTick || t.maxTicks !== c?.maxTicks;
       }));
   return { map: mapChanged, scoring: scoringChanged };
 }
@@ -41,7 +41,7 @@ export async function publishMap(): Promise<void> {
       {
         path: `src/config/modes/${map.modeId}.scoring.json`,
         content: pretty({
-          tiers: resolved.tiers.map((t) => ({ id: t.id, destroyPoints: t.destroy, capturePointsPerTick: t.capturePerTick })),
+          tiers: resolved.tiers.map((t) => ({ id: t.id, destroyPoints: t.destroy, capturePointsPerTick: t.capturePerTick, maxTicks: t.maxTicks })),
           captureTickSeconds: resolved.tickSeconds,
         }),
       },

@@ -319,7 +319,7 @@ export function BoardStage() {
   const drawings = step.drawings.filter((d) => (d.tool === 'text' ? layers.notes : layers.drawings));
 
   return (
-    <div ref={containerRef} className="relative h-full w-full overflow-hidden" style={{ background: map.style.fog, cursor: cursorStyle }}
+    <div ref={containerRef} className="relative h-full w-full overflow-hidden" style={{ background: map.style.cloud, cursor: cursorStyle }}
       onDragOver={(e) => acceptsBoardDrop(e.dataTransfer) && e.preventDefault()} onDrop={onDrop}>
       <Stage
         ref={stageRef}

@@ -30,7 +30,7 @@ interface AiPlan {
     texts?: { at: Place; text: string; color?: string }[];
     zones?: { at: Place; radius?: number; color?: string }[];
     pings?: { at: Place; color?: string }[];
-    objectives?: { marker: string; status?: ObjectiveStatus; tier?: string; timerSeconds?: number }[];
+    objectives?: { marker: string; status?: ObjectiveStatus; tier?: string; timerSeconds?: number; ticks?: number }[];
   }[];
 }
 
@@ -64,7 +64,8 @@ export function buildPrompt(request: string, strategy: Strategy, map: MapConfig)
     .map((m) => `- "${m.id}": ${m.label}${m.tier ? ` (tier ${m.tier})` : ''}${m.side ? ` (guild ${m.side === 'green' ? 'Verde' : 'Roja'})` : ''}${m.confirmed ? '' : ' [función por confirmar]'} — zona ${zoneOf(m.pos, map.numpad)}, x ${m.pos.x.toFixed(2)}, y ${m.pos.y.toFixed(2)}`)
     .join('\n');
   const points = tierPoints(strategy.modeId, useScoringStore.getState().overrides);
-  const tiers = points.tiers.map((t) => `${t.id}: destruir ${t.destroy ?? 'sin dato'}, captura por tick ${t.capturePerTick ?? 'sin dato'}`).join('; ') + (points.tickSeconds ? ` (un tick cada ${points.tickSeconds} s)` : '');
+  const tiers = points.tiers.map((t) => `${t.id}: romper el sello ${t.destroy ?? 'sin dato'}, captura ${t.capturePerTick ?? 'sin dato'} por tick hasta ${t.maxTicks ?? '?'} ticks`).join('; ') + (points.tickSeconds ? ` (un tick cada ${points.tickSeconds} s)` : '');
+  const pending = mode?.scoring?.pendingRules?.length ? `\n- Sin confirmar (no lo des por hecho): ${mode.scoring.pendingRules.join(' ')}` : '';
   const player = (id: string | null) => {
     const p = strategy.roster.find((x) => x.id === id);
     return p ? `${p.name} (${jobById(p.jobId)?.name ?? '?'})` : null;
@@ -85,8 +86,8 @@ ${request.trim() || '(Propón una estrategia de apertura razonable y pregúntame
 
 ## Reglas del modo
 - Gana la primera guild que llega a ${scoring?.winScore ?? '?'} puntos. Cada kill vale ${scoring?.killPoints ?? '?'} punto.
-- Los pilares aparecen durante la partida, se destruyen con daño y tienen tier. Al destruirlo queda una zona de captura que suma puntos cada cierto tiempo a la guild con más gente dentro.
-- Puntos por tier: ${tiers ?? 'sin datos'}. Si un valor dice "sin dato", no lo inventes: razona solo con el orden de importancia de los tiers.
+- Los pilares aparecen durante la partida y tienen tier. Su sello se rompe con daño puro; al romperlo queda una zona de captura que suma puntos por tick a la guild con más jugadores dentro, hasta un máximo de ticks; luego el pilar se agota.
+- Puntos por tier: ${tiers ?? 'sin datos'}. Si un valor dice "sin dato", no lo inventes.${pending}
 - Una party tiene máximo ${mode?.partySize ?? 5} jugadores; una raid, máximo ${mode?.raidMaxParties ?? 8} partys.
 
 ## Mapa
@@ -116,7 +117,7 @@ Reglas del JSON:
 - "groups" ubica raids o partys por su número. Usa {"type": "raid"} cuando la raid se mueve unida y {"type": "party"} cuando sus partys actúan por separado. No pongas la raid y sus partys en el mismo paso.
 - Cada paso debe traer la posición de todos los grupos que siguen en juego; así la web anima el movimiento entre pasos.
 - "raids" y "parties" son opcionales: inclúyelos solo si propones cambiar la formación o la composición. "jobs" rellena los slots vacíos de esa party; no reemplaza jugadores que ya están.
-- Estados de un objetivo: ${STATUSES.join(', ')}. Tiers: ${scoring?.tiers.map((t) => t.id).join(', ') ?? 'B, A, S'}.
+- Estados de un objetivo: pending (por aparecer), active (sello intacto), captured-green / captured-red (en captura), destroyed (agotado). Puedes agregar "ticks" al objetivo si la captura no es completa. Tiers: ${scoring?.tiers.map((t) => t.id).join(', ') ?? 'B, A, S'}.
 - Colores sugeridos: ${Object.entries(COLORS).map(([k, v]) => `${k} ${v}`).join(', ')}.
 - Notas cortas, pensadas para leerse en voz durante la partida.`;
 }
@@ -287,6 +288,7 @@ export function applyPlan(plan: AiPlan, base: Strategy, map: MapConfig, replace:
         status: STATUSES.includes(o.status as ObjectiveStatus) ? (o.status as ObjectiveStatus) : 'pending',
         ...(mode?.scoring?.tiers.some((t) => t.id === o.tier) ? { tier: o.tier } : {}),
         ...(Number.isFinite(o.timerSeconds) ? { timerSeconds: Math.max(0, Math.round(o.timerSeconds!)) } : {}),
+        ...(Number.isFinite(o.ticks) ? { ticks: Math.max(0, Math.round(o.ticks!)) } : {}),
       });
     }
     return step;

@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { jobById } from '../../../config/jobs.ts';
 import { roleById } from '../../../config/roles.ts';
 import { tierRank } from '../../../config/modes/index.ts';
+import { resolvedStats, useScoringStore } from '../../../store/scoringStore.ts';
 import { zoneCenters, zoneOf, ZONE_KEYS } from '../../../lib/numpad.ts';
 import { partyOfToken } from '../../party/partyActions.ts';
 import type { Projection3 } from '../../../lib/projection.ts';
@@ -87,11 +88,16 @@ function Pillar({ marker, objective, modeId, x, z }: { marker: Marker; objective
 }
 
 export const Markers3D = memo(function Markers3D({ map, proj, objectives, labelHeight = 1.2 }: { map: MapConfig; proj: Projection3; objectives: ObjectiveState[]; labelHeight?: number }) {
+  const overrides = useScoringStore((s) => s.overrides);
+  const { stats } = resolvedStats(map.modeId, overrides);
   return (
     <group>
       {map.markers.map((m) => {
         const [x, z] = proj.toGround(m.pos);
-        const label = <Label text={`${m.label}${m.confirmed ? '' : ' (?)'} · Z${zoneOf(m.pos, map.numpad)}`} position={[x, 0.3, z + 3]} height={labelHeight} />;
+        const tier = objectives.find((o) => o.markerId === m.id)?.tier ?? m.tier;
+        const value = stats.find((s) => s.id === tier)?.pillarTotal;
+        const pillar = m.kind === 'central-pillar' || m.kind === 'pillar-slot';
+        const label = <Label text={`${m.label}${m.confirmed || pillar ? '' : ' (?)'} · Z${zoneOf(m.pos, map.numpad)}${pillar && value != null ? ` · ${value} pts` : ''}`} position={[x, 0.3, z + 3]} height={labelHeight} />;
         if (m.kind === 'central-pillar' || m.kind === 'pillar-slot') {
           return <group key={m.id}><Pillar marker={m} objective={objectives.find((o) => o.markerId === m.id)} modeId={map.modeId} x={x} z={z} />{label}</group>;
         }

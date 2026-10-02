@@ -21,9 +21,9 @@ export interface Tree {
 /**
  * Reparte árboles sobre todo lo que queda dentro del contorno y no es transitable, agua ni roca.
  * Grilla con desorden determinista: el mismo mapa siempre da el mismo bosque, en 2D y en 3D.
- * `cols` es la cantidad de árboles a lo ancho del mapa.
+ * `cols` es la cantidad de árboles a lo ancho del mapa. Con `area: 'rect'` el bosque llena todo el rectángulo del mapa.
  */
-export function scatterForest(g: MapGeometry, aspect: number, cols: number, seed = 7): Tree[] {
+export function scatterForest(g: MapGeometry, aspect: number, cols: number, seed = 7, area: 'bounds' | 'rect' = 'bounds'): Tree[] {
   const rand = mulberry32(seed);
   const step = 1 / cols;
   const rows = Math.ceil(cols / aspect);
@@ -33,7 +33,7 @@ export function scatterForest(g: MapGeometry, aspect: number, cols: number, seed
       const pos = { x: (c + 0.5 + (rand() - 0.5)) * step, y: ((r + 0.5 + (rand() - 0.5)) * step) * aspect };
       const size = 0.7 + rand() * 0.7;
       const shade = rand();
-      if (!pointInRing(pos, g.bounds)) continue;
+      if (area === 'bounds' ? !pointInRing(pos, g.bounds) : pos.x < 0 || pos.x > 1 || pos.y < 0 || pos.y > 1) continue;
       if (g.walkable.some((p) => pointInPolygon(pos, p)) || g.water.some((p) => pointInRing(pos, p.points))) continue;
       if (g.obstacles.some((o) => o.kind !== 'forest' && pointInRing(pos, o.points))) continue;
       out.push({ pos, size, shade });

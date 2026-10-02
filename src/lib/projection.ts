@@ -38,8 +38,11 @@ export interface View {
 /** Pantalla (px del lienzo) → mundo 2D. */
 export const screenToWorld = (p: Vec2, view: View): Vec2 => ({ x: (p.x - view.x) / view.scale, y: (p.y - view.y) / view.scale });
 
-/** Vista que encaja el mapa completo en el lienzo. */
-export function fitView(proj: Projection, width: number, height: number, margin = 24): View {
+/**
+ * Vista que encaja el mapa: ocupa todo el alto del lienzo (lo que sobra a los lados es el marco de nubes).
+ * Si el lienzo es más angosto que el mapa, encaja por el ancho para no cortarlo.
+ */
+export function fitView(proj: Projection, width: number, height: number, margin = 4): View {
   const scale = Math.max(0.05, Math.min((width - margin * 2) / proj.w, (height - margin * 2) / proj.h));
   return { scale, x: (width - proj.w * scale) / 2, y: (height - proj.h * scale) / 2 };
 }

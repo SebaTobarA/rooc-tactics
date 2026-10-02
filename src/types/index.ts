@@ -10,17 +10,22 @@ export type RoleId = 'tank' | 'physical' | 'magical' | 'support' | 'control' | '
 
 export interface TierScoring {
   id: TierId;
-  /** null = TODO: falta cargar el valor desde las tablas del juego. */
+  /** Puntos por romper el sello del pilar (Break Crystal Pillar's Seal). null = sin dato. */
   destroyPoints: number | null;
+  /** Puntos por tick mientras la zona de captura está controlada. */
   capturePointsPerTick: number | null;
+  /** Ticks máximos que suma un pilar capturado antes de agotarse. */
+  maxTicks: number | null;
 }
 
 export interface ModeScoring {
   winScore: number;
   killPoints: number;
   tiers: TierScoring[];
-  /** null = TODO */
+  /** Segundos entre ticks de captura. */
   captureTickSeconds: number | null;
+  /** Mecánicas sin confirmar: se muestran como pendientes en la interfaz y no se usan en los cálculos. */
+  pendingRules?: string[];
 }
 
 export interface ModeConfig {
@@ -185,6 +190,8 @@ export interface ObjectiveState {
   tier?: TierId;
   status: ObjectiveStatus;
   timerSeconds?: number;
+  /** Ticks de captura logrados en este paso (si se omite, se asume la captura completa). */
+  ticks?: number;
 }
 
 export interface Step {

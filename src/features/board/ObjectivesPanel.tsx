@@ -7,7 +7,7 @@ import { useIsAdmin } from '../../store/adminStore.ts';
 import { PublishButton } from '../admin/PublishButton.tsx';
 import { useEditorStore } from '../../store/editorStore.ts';
 import { useMapStore } from '../../store/mapStore.ts';
-import { tierPoints, useScoringStore } from '../../store/scoringStore.ts';
+import { resolvedStats, tierPoints, useScoringStore } from '../../store/scoringStore.ts';
 import { useCurrentStep, useStrategyStore } from '../../store/strategyStore.ts';
 import type { ObjectiveStatus } from '../../types/index.ts';
 import { STATUS_LABELS } from '../map-render/konva/Markers.tsx';
@@ -24,6 +24,7 @@ export function ObjectivesPanel() {
   const scoring = modeById(modeId)?.scoring;
   const admin = useIsAdmin();
   const points = tierPoints(modeId, overrides);
+  const { stats } = resolvedStats(modeId, overrides);
   const pillars = map.markers.filter((m) => m.kind === 'central-pillar' || m.kind === 'pillar-slot');
   const editMap = (fn: Parameters<typeof update>[0]) => {
     checkpoint();
@@ -46,7 +47,7 @@ export function ObjectivesPanel() {
   for (const m of pillars) {
     const o = step.objectives.find((x) => x.markerId === m.id);
     if (o?.status !== 'captured-green' && o?.status !== 'captured-red') continue;
-    const p = points.tiers.find((t) => t.id === (o.tier ?? m.tier))?.capturePerTick;
+    const p = points.tiers.find((t) => t.id === (o.tier ?? m.tier))?.capturePerTick ?? null;
     if (p == null) heldUnknown = true;
     else held[o.status === 'captured-green' ? 'green' : 'red'] += p;
   }
@@ -57,28 +58,31 @@ export function ObjectivesPanel() {
         <h3 className={heading}>Puntos por tier</h3>
         <table className="mt-1 w-full text-xs">
           <thead>
-            <tr className="text-slate-500"><th className="text-left font-normal">Tier</th><th className="font-normal">Destruir</th><th className="font-normal">Captura / tick</th></tr>
+            <tr className="text-slate-500"><th className="text-left font-normal">Tier</th><th className="font-normal">Sello</th><th className="font-normal">Pts/tick</th><th className="font-normal">Máx. ticks</th><th className="text-right font-normal">Total</th></tr>
           </thead>
           <tbody>
-            {(scoring?.tiers ?? []).map((t) => (
-              <tr key={t.id}>
-                <td className="font-semibold">{t.id}</td>
-                <td className="p-0.5">
-                  {!admin ? <span className="block text-right">{points.tiers.find((x) => x.id === t.id)?.destroy ?? 'sin dato'}</span> : (
-                    <input type="number" min={0} className={`${input} px-1 py-0.5 text-right text-xs`} aria-label={`Puntos por destruir un pilar tier ${t.id}`} placeholder="sin dato"
-                      value={overrides.destroy[t.id] ?? t.destroyPoints ?? ''} onChange={(e) => setOverrides({ ...overrides, destroy: { ...overrides.destroy, [t.id]: num(e.target.value) } })} />
-                  )}
-                </td>
-                <td className="p-0.5">
-                  {!admin ? <span className="block text-right">{points.tiers.find((x) => x.id === t.id)?.capturePerTick ?? 'sin dato'}</span> : (
-                    <input type="number" min={0} className={`${input} px-1 py-0.5 text-right text-xs`} aria-label={`Puntos de captura por tick tier ${t.id}`} placeholder="sin dato"
-                      value={overrides.capture[t.id] ?? t.capturePointsPerTick ?? ''} onChange={(e) => setOverrides({ ...overrides, capture: { ...overrides.capture, [t.id]: num(e.target.value) } })} />
-                  )}
-                </td>
-              </tr>
-            ))}
+            {(scoring?.tiers ?? []).map((t) => {
+              const cur = points.tiers.find((x) => x.id === t.id);
+              const total = stats.find((x) => x.id === t.id)?.pillarTotal;
+              const cell = (field: 'destroy' | 'capture' | 'maxTicks', value: number | null | undefined, published: number | null, label: string) =>
+                admin ? (
+                  <input type="number" min={0} className={`${input} px-1 py-0.5 text-right text-xs`} aria-label={`${label} tier ${t.id}`} placeholder="sin dato"
+                    value={overrides[field]?.[t.id] ?? published ?? ''} onChange={(e) => setOverrides({ ...overrides, [field]: { ...overrides[field], [t.id]: num(e.target.value) } })} />
+                ) : (
+                  <span className="block text-right">{value ?? 'sin dato'}</span>
+                );
+              return (
+                <tr key={t.id}>
+                  <td className="font-semibold">{t.id}</td>
+                  <td className="p-0.5">{cell('destroy', cur?.destroy, t.destroyPoints, 'Puntos por romper el sello')}</td>
+                  <td className="p-0.5">{cell('capture', cur?.capturePerTick, t.capturePointsPerTick, 'Puntos de captura por tick')}</td>
+                  <td className="p-0.5">{cell('maxTicks', cur?.maxTicks, t.maxTicks, 'Ticks máximos de captura')}</td>
+                  <td className="text-right font-semibold">{total ?? '—'}</td>
+                </tr>
+              );
+            })}
             <tr>
-              <td colSpan={2} className="text-slate-500">Segundos por tick</td>
+              <td colSpan={3} className="text-slate-500">Segundos por tick</td>
               <td className="p-0.5">
                 {!admin ? <span className="block text-right">{points.tickSeconds ?? 'sin dato'}</span> : (
                   <input type="number" min={0} className={`${input} px-1 py-0.5 text-right text-xs`} aria-label="Segundos por tick de captura" placeholder="sin dato"
@@ -109,7 +113,8 @@ export function ObjectivesPanel() {
 
         {pillars.map((m) => {
           const o = step.objectives.find((x) => x.markerId === m.id);
-          const p = points.tiers.find((t) => t.id === m.tier);
+          const st = stats.find((t) => t.id === (o?.tier ?? m.tier));
+          const capturing = o?.status === 'captured-green' || o?.status === 'captured-red';
           return (
             <div key={m.id} className="rounded-md border border-slate-200 p-2 dark:border-slate-800">
               <div className="mb-1 flex items-center gap-1">
@@ -141,8 +146,15 @@ export function ObjectivesPanel() {
                 <input className={input} type="number" min={0} placeholder="seg" title="Temporizador en segundos (opcional)" aria-label="Temporizador en segundos"
                   value={o?.timerSeconds ?? ''} onChange={(e) => setObjective(m.id, { timerSeconds: e.target.value === '' ? undefined : Math.max(0, e.target.valueAsNumber || 0) })} />
               </div>
+              {capturing && st && (
+                <label className="mt-1 grid grid-cols-[1fr_4.5rem] items-center gap-1 text-xs text-slate-500">
+                  Ticks logrados en este paso (vacío = captura completa)
+                  <input className={input} type="number" min={0} max={st.maxTicks} placeholder={String(st.maxTicks)} aria-label="Ticks de captura logrados"
+                    value={o?.ticks ?? ''} onChange={(e) => setObjective(m.id, { ticks: e.target.value === '' ? undefined : Math.min(st.maxTicks, Math.max(0, e.target.valueAsNumber || 0)) })} />
+                </label>
+              )}
               <p className="mt-1 text-xs text-slate-500">
-                {!m.tier ? (admin ? 'Define el tier para ver sus puntos.' : 'Tier sin definir.') : `Destruir: ${p?.destroy ?? 'sin dato'} pts · Captura: ${p?.capturePerTick ?? 'sin dato'} pts${points.tickSeconds ? ` cada ${points.tickSeconds} s` : ' por tick'}`}
+                {!st ? (admin ? 'Define el tier para ver sus puntos.' : 'Tier sin definir.') : `Vale ${st.pillarTotal}: sello ${st.seal} + captura ${st.perTick} × ${st.maxTicks} ticks (${st.captureSeconds} s)`}
               </p>
             </div>
           );

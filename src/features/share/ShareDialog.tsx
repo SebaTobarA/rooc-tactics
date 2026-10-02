@@ -16,7 +16,7 @@ export function ShareDialog({ onClose }: { onClose: () => void }) {
   const strategy = useStrategyStore((s) => s.strategy);
   const stepIndex = useStrategyStore((s) => s.stepIndex);
   const viewMode = useUiStore((s) => s.viewMode);
-  const fog = useMapStore((s) => s.map.style.fog);
+  const fog = useMapStore((s) => s.map.style.cloud);
   const [saved, setSaved] = useState<StrategySummary[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const url = useMemo(() => shareUrl(strategy), [strategy]);

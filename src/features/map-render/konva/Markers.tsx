@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { Circle, Group, Path, Star, Text } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import { tierRank } from '../../../config/modes/index.ts';
+import { resolvedStats, useScoringStore } from '../../../store/scoringStore.ts';
 import { zoneOf } from '../../../lib/numpad.ts';
 import type { Projection } from '../../../lib/projection.ts';
 import type { Marker, NumpadGrid, ObjectiveState, ObjectiveStatus, Side, Vec2 } from '../../../types/index.ts';
@@ -13,10 +14,10 @@ const TOWER = 'M-6,8h12v-2.5h-2v-6h2.5v-5h-3v2.5h-2v-2.5h-3v2.5h-2v-2.5h-3v5h2.5
 
 export const STATUS_LABELS: Record<ObjectiveStatus, string> = {
   pending: 'Por aparecer',
-  active: 'Activo',
-  destroyed: 'Destruido',
-  'captured-green': 'Capturado por Verde',
-  'captured-red': 'Capturado por Roja',
+  active: 'Activo (sello intacto)',
+  destroyed: 'Agotado',
+  'captured-green': 'En captura: Verde',
+  'captured-red': 'En captura: Roja',
 };
 
 export const STATUS_COLORS: Record<ObjectiveStatus, string> = {
@@ -95,6 +96,10 @@ interface Props {
 }
 
 export const Markers = memo(function Markers({ markers, proj, grid, modeId, objectives, selectedId, editable, onSelect, onMoveStart, onMove }: Props) {
+  const overrides = useScoringStore((s) => s.overrides);
+  const { stats } = resolvedStats(modeId, overrides);
+  /** Total de un pilar de ese tier (sello + captura completa). */
+  const valueOf = (tier: string | undefined) => stats.find((s) => s.id === tier)?.pillarTotal ?? null;
   return (
     <Group listening={!!editable}>
       {markers.map((m) => {
@@ -117,7 +122,7 @@ export const Markers = memo(function Markers({ markers, proj, grid, modeId, obje
             {selectedId === m.id && <Circle radius={20} stroke="#38bdf8" strokeWidth={2} dash={[5, 4]} />}
             <MarkerIcon marker={m} objective={objective} modeId={modeId} />
             <Text
-              text={`${m.label}${m.confirmed ? '' : ' (?)'} · Z${zoneOf(m.pos, grid)}`}
+              text={`${m.label}${m.confirmed || pillar ? '' : ' (?)'} · Z${zoneOf(m.pos, grid)}${pillar && valueOf(objective?.tier ?? m.tier) != null ? ` · ${valueOf(objective?.tier ?? m.tier)} pts` : ''}`}
               y={pillar ? pillarRadius(tierRank(modeId, objective?.tier ?? m.tier)) + 4 : 15}
               width={160}
               offsetX={80}
