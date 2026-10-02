@@ -6,6 +6,7 @@ import { useEditorStore } from '../../store/editorStore.ts';
 import { useMapStore } from '../../store/mapStore.ts';
 import { lastStrategyId, newStrategy, useStrategyStore } from '../../store/strategyStore.ts';
 import { useUiStore } from '../../store/uiStore.ts';
+import { AiDialog } from '../ai/AiDialog.tsx';
 import { ShareDialog } from '../share/ShareDialog.tsx';
 import { Timeline } from '../timeline/Timeline.tsx';
 import { EditorPanel } from '../map-editor/EditorPanel.tsx';
@@ -43,6 +44,7 @@ export function BoardPage({ mapId }: { mapId: string }) {
   // El editor de mapa trabaja siempre en 2D.
   const show3d = viewMode === '3d' && !editorActive;
   const [shareOpen, setShareOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
   useBoardShortcuts();
 
   useEffect(() => {
@@ -84,6 +86,7 @@ export function BoardPage({ mapId }: { mapId: string }) {
         <button className={`${button} ${strategy.flipped ? active : ''}`} onClick={() => change((s) => ({ ...s, flipped: !s.flipped }))} title="Rota la vista 180°; no cambia los datos">
           Invertir lados
         </button>
+        <button className={button} disabled={editorActive} onClick={() => setAiOpen(true)} title="Arma un encargo para tu chat de Claude y convierte su respuesta en pasos">Asistente IA</button>
         <button className={button} disabled={editorActive} onClick={() => setShareOpen(true)}>Guardar y compartir</button>
         <button className={`${button} ${editorActive ? active : ''}`} onClick={() => setEditorActive(!editorActive)}>Editor de mapa</button>
       </div>
@@ -110,6 +113,7 @@ export function BoardPage({ mapId }: { mapId: string }) {
       <TokenTooltip />
       <HelpDialog />
       {shareOpen && <ShareDialog onClose={() => setShareOpen(false)} />}
+      {aiOpen && <AiDialog onClose={() => setAiOpen(false)} />}
     </div>
   );
 }
