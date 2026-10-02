@@ -12,7 +12,7 @@ export function parseStrategy(data: unknown): Strategy | null {
   if (!s || s.schema !== 1 || !Array.isArray(s.steps) || !s.steps.length || !Array.isArray(s.parties) || !Array.isArray(s.roster)) return null;
   if (typeof s.mapId !== 'string' || !maps[s.mapId]) return null;
   if (!s.steps.every((st) => Array.isArray(st.tokens) && Array.isArray(st.drawings) && Array.isArray(st.objectives))) return null;
-  return { ...(s as Strategy), allySide: s.allySide ?? 'green', flipped: !!s.flipped };
+  return { ...(s as Strategy), raids: Array.isArray(s.raids) ? s.raids : [], allySide: s.allySide ?? 'green', flipped: !!s.flipped };
 }
 
 export const encodeStrategy = (s: Strategy): string => compressToEncodedURIComponent(JSON.stringify(s));

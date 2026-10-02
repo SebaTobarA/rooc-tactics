@@ -29,6 +29,8 @@ interface UiState {
   helpOpen: boolean;
   /** Reproducción en curso: transición del paso `from` al `to`, con avance t en 0–1. */
   playback: { from: number; to: number; t: number } | null;
+  /** Token bajo el cursor, con la posición del puntero en la ventana, para el mensaje emergente. */
+  hover: { tokenId: string; x: number; y: number } | null;
   /** Aviso breve que se muestra sobre el tablero. */
   notice: string | null;
   /** Posición del cursor sobre el mapa (normalizada), para la barra de estado. */
@@ -44,6 +46,7 @@ interface UiState {
   setHelpOpen(open: boolean): void;
   setPlayback(playback: UiState['playback']): void;
   setCursor(p: Vec2 | null): void;
+  setHover(hover: UiState['hover']): void;
   /** Muestra un aviso que se borra solo a los pocos segundos. */
   notify(text: string): void;
 }
@@ -65,6 +68,7 @@ export const useUiStore = create<UiState>((set) => ({
   helpOpen: false,
   playback: null,
   cursor: null,
+  hover: null,
   notice: null,
   toggleTheme: () =>
     set((s) => {
@@ -83,6 +87,7 @@ export const useUiStore = create<UiState>((set) => ({
   setHelpOpen: (helpOpen) => set({ helpOpen }),
   setPlayback: (playback) => set({ playback }),
   setCursor: (cursor) => set({ cursor }),
+  setHover: (hover) => set((s) => (s.hover === hover || (!s.hover && !hover) ? s : { hover })),
   notify: (notice) => {
     clearTimeout(noticeTimer);
     set({ notice });

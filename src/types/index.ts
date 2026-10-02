@@ -31,6 +31,10 @@ export interface ModeConfig {
   maps: string[];
   partySize: number;
   maxSameJobPerTeam?: number;
+  /** Máximo de partys por raid. */
+  raidMaxParties?: number;
+  /** Formaciones sugeridas: jugadores por raid (ej.: [20, 20] = 2 raids de 20). */
+  raidPresets?: { name: string; raids: number[] }[];
   scoring?: ModeScoring;
 }
 
@@ -156,6 +160,8 @@ export interface Token {
   playerName?: string;
   role?: RoleId;
   locked?: boolean;
+  /** Ficha de grupo: representa a una party o a una raid completa con un solo token (jobId queda vacío). */
+  group?: { type: 'party' | 'raid'; id: string };
 }
 
 export type DrawingTool = 'pen' | 'line' | 'arrow' | 'curve-arrow' | 'rect' | 'circle' | 'text' | 'ping';
@@ -205,6 +211,14 @@ export interface Party {
   templateId?: string;
 }
 
+/** Raid: agrupa partys que se mueven juntas. Una party pertenece a lo más a una raid. */
+export interface Raid {
+  id: string;
+  name: string;
+  number: number;
+  partyIds: string[];
+}
+
 export interface Strategy {
   schema: 1;
   id: string;
@@ -217,6 +231,7 @@ export interface Strategy {
   allySide: Side;
   roster: Player[];
   parties: Party[];
+  raids: Raid[];
   steps: Step[];
   createdAt: string;
   updatedAt: string;

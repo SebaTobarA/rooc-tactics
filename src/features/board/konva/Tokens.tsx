@@ -1,12 +1,13 @@
 import { memo } from 'react';
-import { Circle, Group, Text } from 'react-konva';
+import { Circle, Group, RegularPolygon, Text } from 'react-konva';
 import { partyOfToken } from '../../party/partyActions.ts';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import { jobById } from '../../../config/jobs.ts';
 import { roleById } from '../../../config/roles.ts';
 import { zoneOf } from '../../../lib/numpad.ts';
 import type { Projection } from '../../../lib/projection.ts';
-import type { NumpadGrid, Party, Side, Token, Vec2 } from '../../../types/index.ts';
+import type { NumpadGrid, Party, Raid, Side, Token, Vec2 } from '../../../types/index.ts';
+import { groupLabel, tokenBadge } from '../../party/describeToken.ts';
 import { SIDE_COLORS } from '../../map-render/konva/Markers.tsx';
 
 export const teamColor = (team: Token['team'], allySide: Side) =>
@@ -17,17 +18,20 @@ interface Props {
   proj: Projection;
   grid: NumpadGrid;
   parties: Party[];
+  raids: Raid[];
   allySide: Side;
   selection: string[];
   interactive: boolean;
   onSelect: (id: string, additive: boolean) => void;
   onMoveStart: (id: string) => void;
   onMove: (id: string, delta: Vec2) => void;
+  /** Puntero sobre un token (o fuera, con null), en coordenadas de la ventana. */
+  onHover: (id: string | null, x: number, y: number) => void;
 }
 
 export const TOKEN_RADIUS = 15;
 
-export const Tokens = memo(function Tokens({ tokens, proj, grid, parties, allySide, selection, interactive, onSelect, onMoveStart, onMove }: Props) {
+export const Tokens = memo(function Tokens({ tokens, proj, grid, parties, raids, allySide, selection, interactive, onSelect, onMoveStart, onMove, onHover }: Props) {
   return (
     <Group listening={interactive}>
       {tokens.map((t) => {
@@ -45,7 +49,10 @@ export const Tokens = memo(function Tokens({ tokens, proj, grid, parties, allySi
             draggable={interactive && !t.locked}
             onMouseDown={(e) => { stop(e); onSelect(t.id, e.evt.shiftKey); }}
             onTouchStart={(e) => { stop(e); onSelect(t.id, false); }}
-            onDragStart={() => onMoveStart(t.id)}
+            onDragStart={() => { onHover(null, 0, 0); onMoveStart(t.id); }}
+            onMouseEnter={(e) => onHover(t.id, e.evt.clientX, e.evt.clientY)}
+            onMouseMove={(e) => onHover(t.id, e.evt.clientX, e.evt.clientY)}
+            onMouseLeave={() => onHover(null, 0, 0)}
             onDragMove={(e) => {
               const n = proj.toNorm(e.target.position());
               onMove(t.id, { x: n.x - t.pos.x, y: n.y - t.pos.y });
@@ -53,6 +60,28 @@ export const Tokens = memo(function Tokens({ tokens, proj, grid, parties, allySi
               e.target.position(proj.toWorld(t.pos));
             }}
           >
+            {t.group ? (
+              // Ficha de grupo: una party (círculo) o una raid completa (hexágono) en un solo token.
+              (() => {
+                const raid = t.group.type === 'raid';
+                const r = raid ? 27 : 20;
+                const ring = teamColor(t.team, allySide);
+                return (
+                  <>
+                    {selected && <Circle radius={r + 7} stroke="#38bdf8" strokeWidth={2} dash={[5, 4]} />}
+                    {raid ? (
+                      <RegularPolygon sides={6} radius={r} fill="#0f172a" stroke={ring} strokeWidth={5} lineJoin="round" shadowColor="#000" shadowBlur={8} shadowOpacity={0.7} opacity={t.locked ? 0.8 : 1} />
+                    ) : (
+                      <Circle radius={r} fill="#1e293b" stroke={ring} strokeWidth={4} shadowColor="#000" shadowBlur={6} shadowOpacity={0.6} opacity={t.locked ? 0.8 : 1} />
+                    )}
+                    <Text text={tokenBadge(t, { parties, raids })} fontSize={raid ? 18 : 14} fontStyle="bold" fill="#fff" width={60} offsetX={30} offsetY={raid ? 9 : 7} align="center" listening={false} />
+                    <Text text={`${groupLabel(t, { parties, raids })} · Z${zoneOf(t.pos, grid)}`} y={r + 5} width={180} offsetX={90} align="center" fontSize={11} fontStyle="bold" fill="#fff"
+                      shadowColor="#000" shadowBlur={3} shadowOpacity={1} listening={false} />
+                  </>
+                );
+              })()
+            ) : (
+              <>
             {selected && <Circle radius={TOKEN_RADIUS + 6} stroke="#38bdf8" strokeWidth={2} dash={[5, 4]} />}
             <Circle radius={TOKEN_RADIUS} fill={job?.color ?? '#475569'} stroke={teamColor(t.team, allySide)} strokeWidth={4}
               shadowColor="#000" shadowBlur={6} shadowOpacity={0.6} opacity={t.locked ? 0.8 : 1} />
@@ -78,6 +107,8 @@ export const Tokens = memo(function Tokens({ tokens, proj, grid, parties, allySi
               shadowOpacity={1}
               listening={false}
             />
+              </>
+            )}
           </Group>
         );
       })}

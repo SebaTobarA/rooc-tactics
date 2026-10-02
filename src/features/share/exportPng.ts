@@ -79,7 +79,8 @@ export async function exportPng(strategy: Strategy, step: Step, stepIndex: numbe
   for (const party of strategy.parties) {
     const members = party.slots.map((id) => strategy.roster.find((p) => p.id === id)).filter((p) => !!p);
     if (!members.length) continue;
-    text(`${party.number} · ${party.name}`, 'bold 13px system-ui, sans-serif', '#f8fafc', 18);
+    const raid = strategy.raids.find((r) => r.partyIds.includes(party.id));
+    text(`${raid ? raid.name + ' · ' : ''}P${party.number} · ${party.name}`, 'bold 13px system-ui, sans-serif', '#f8fafc', 18);
     for (const m of members) {
       const job = jobById(m.jobId);
       ctx.beginPath();

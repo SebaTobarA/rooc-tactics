@@ -6,7 +6,8 @@ import { roleById } from '../../../config/roles.ts';
 import { zoneCenters, zoneOf, ZONE_KEYS } from '../../../lib/numpad.ts';
 import { partyOfToken } from '../../party/partyActions.ts';
 import type { Projection3 } from '../../../lib/projection.ts';
-import type { Drawing, MapConfig, Marker, ObjectiveState, Party, Side, Token, Vec2 } from '../../../types/index.ts';
+import type { Drawing, MapConfig, Marker, ObjectiveState, Party, Raid, Side, Token, Vec2 } from '../../../types/index.ts';
+import { groupLabel, tokenBadge } from '../../party/describeToken.ts';
 import { curveControl } from '../../board/hit.ts';
 import { teamColor } from '../../board/konva/Tokens.tsx';
 import type { Draft } from '../../board/useToolController.ts';
@@ -189,11 +190,15 @@ interface TokensProps {
   proj: Projection3;
   map: MapConfig;
   parties: Party[];
+  raids: Raid[];
   allySide: Side;
   selection: string[];
 }
 
-export const Tokens3D = memo(function Tokens3D({ tokens, proj, map, parties, allySide, selection }: TokensProps) {
+/** Tamaño del sprite de un token en unidades de mundo. */
+export const tokenSpriteSize = (t: Token) => (t.group?.type === 'raid' ? 10 : t.group ? 8 : 7);
+
+export const Tokens3D = memo(function Tokens3D({ tokens, proj, map, parties, raids, allySide, selection }: TokensProps) {
   return (
     <group>
       {tokens.map((t) => {
@@ -201,13 +206,15 @@ export const Tokens3D = memo(function Tokens3D({ tokens, proj, map, parties, all
         const job = jobById(t.jobId);
         const role = roleById(t.role);
         const ring = teamColor(t.team, allySide);
+        const zone = `Z${zoneOf(t.pos, map.numpad)}`;
         const texture = tokenTexture({
-          abbr: job?.abbr ?? '?',
-          color: job?.color ?? '#475569',
+          abbr: tokenBadge(t, { parties, raids }),
+          color: t.group ? (t.group.type === 'raid' ? '#0f172a' : '#1e293b') : (job?.color ?? '#475569'),
           ring,
-          party: partyOfToken(parties, t)?.number,
-          roleColor: role?.color,
-          label: `${t.playerName ? t.playerName + ' · ' : ''}${role ? role.short + ' · ' : ''}Z${zoneOf(t.pos, map.numpad)}`,
+          party: t.group ? undefined : partyOfToken(parties, t)?.number,
+          roleColor: t.group ? undefined : role?.color,
+          shape: t.group?.type,
+          label: t.group ? `${groupLabel(t, { parties, raids })} · ${zone}` : `${t.playerName ? t.playerName + ' · ' : ''}${role ? role.short + ' · ' : ''}${zone}`,
           selected: selection.includes(t.id),
           locked: !!t.locked,
         });
@@ -218,7 +225,7 @@ export const Tokens3D = memo(function Tokens3D({ tokens, proj, map, parties, all
               <meshBasicMaterial color={ring} transparent opacity={0.85} depthTest={false} />
             </mesh>
             {/* Billboard: el sprite siempre mira a la cámara. */}
-            <sprite position={[x, TOKEN_Y, z]} scale={[7, 7, 1]} renderOrder={15}>
+            <sprite position={[x, TOKEN_Y, z]} scale={[tokenSpriteSize(t), tokenSpriteSize(t), 1]} renderOrder={15}>
               <spriteMaterial map={texture} depthTest={false} transparent />
             </sprite>
           </group>

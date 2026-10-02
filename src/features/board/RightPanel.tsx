@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { PartiesPanel } from '../party/PartiesPanel.tsx';
+import { RaidsPanel } from '../party/RaidsPanel.tsx';
 import { ScorePanel } from '../score/ScorePanel.tsx';
 import { JobsPanel } from './JobsPanel.tsx';
 import { LayersPanel } from './LayersPanel.tsx';
@@ -8,8 +9,9 @@ import { SelectionInspector } from './SelectionInspector.tsx';
 
 const TABS = [
   { id: 'jobs', name: 'Jobs', render: () => <JobsPanel /> },
+  { id: 'raids', name: 'Raids', render: () => <RaidsPanel /> },
   { id: 'parties', name: 'Partys', render: () => <PartiesPanel /> },
-  { id: 'objectives', name: 'Objetivos', render: () => <ObjectivesPanel /> },
+  { id: 'objectives', name: 'Objet.', render: () => <ObjectivesPanel /> },
   { id: 'score', name: 'Puntos', render: () => <ScorePanel /> },
   { id: 'layers', name: 'Capas', render: () => <LayersPanel /> },
 ] as const;
@@ -22,7 +24,7 @@ export function RightPanel() {
       <div className="flex border-b border-slate-200 text-sm dark:border-slate-800">
         {TABS.map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)}
-            className={`flex-1 px-1 py-2 ${tab === t.id ? 'border-b-2 border-sky-500 font-semibold' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}>
+            className={`flex-1 px-0.5 py-2 text-xs ${tab === t.id ? 'border-b-2 border-sky-500 font-semibold' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}>
             {t.name}
           </button>
         ))}

@@ -6,6 +6,8 @@ import { useMapStore } from '../../store/mapStore.ts';
 import { useCurrentStep, useStrategyStore } from '../../store/strategyStore.ts';
 import { useUiStore } from '../../store/uiStore.ts';
 import type { RoleId, Token } from '../../types/index.ts';
+import { describeToken } from '../party/describeToken.ts';
+import { mergeRaid, raidOf, splitParty, splitRaid } from '../party/groupActions.ts';
 import { COLORS } from './tools.ts';
 import { button, heading, input } from './ui.ts';
 
@@ -16,11 +18,16 @@ export function SelectionInspector() {
   const parties = useStrategyStore((s) => s.strategy.parties);
   const checkpoint = useStrategyStore((s) => s.checkpoint);
   const grid = useMapStore((s) => s.map.numpad);
+  const strategy = useStrategyStore((s) => s.strategy);
+  const setSelection = useUiStore((s) => s.setSelection);
+  const raids = strategy.raids;
   if (!selection.length) return null;
 
   const token = selection.length === 1 ? step.tokens.find((t) => t.id === selection[0]) : undefined;
   const drawing = selection.length === 1 ? step.drawings.find((d) => d.id === selection[0]) : undefined;
   const locked = [...step.tokens, ...step.drawings].filter((x) => selection.includes(x.id)).every((x) => x.locked);
+  const info = token?.group ? describeToken(token, strategy) : null;
+  const partyRaid = token?.group?.type === 'party' ? raidOf(raids, token.group.id) : undefined;
   const edit = (patch: Partial<Token>) => {
     checkpoint();
     patchToken(token!.id, patch);
@@ -29,7 +36,35 @@ export function SelectionInspector() {
   return (
     <div className="space-y-2 border-b border-slate-200 p-3 dark:border-slate-800">
       <h3 className={heading}>Selección ({selection.length})</h3>
-      {token && (
+      {token?.group && (
+        <div className="space-y-2 text-sm">
+          <div>
+            <p className="font-semibold">{info!.title}</p>
+            <p className="text-xs text-slate-500">{info!.subtitle} · zona {zoneOf(token.pos, grid)}</p>
+            <ul className="mt-1 space-y-0.5 text-xs">
+              {info!.lines.map((line) => <li key={line}>{line}</li>)}
+            </ul>
+          </div>
+          <div className="grid grid-cols-2 gap-1">
+            {token.group.type === 'raid' ? (
+              <button className={`${button} col-span-2 text-xs`} title="En este paso, cada party de la raid pasa a tener su propia ficha" onClick={() => setSelection(splitRaid(token.group!.id, token.pos))}>Separar en partys</button>
+            ) : (
+              <>
+                <button className={`${button} text-xs`} title="En este paso, un token por jugador" onClick={() => setSelection(splitParty(token.group!.id, token.pos))}>Desplegar jugadores</button>
+                <button className={`${button} text-xs`} disabled={!partyRaid} title="En este paso, la raid de esta party vuelve a ser una sola ficha" onClick={() => partyRaid && setSelection(mergeRaid(partyRaid.id, token.pos))}>Juntar la raid</button>
+              </>
+            )}
+          </div>
+          <label className="grid grid-cols-[4.5rem_1fr] items-center gap-x-2">
+            <span className="text-slate-500">Equipo</span>
+            <select className={input} value={token.team} onChange={(e) => edit({ team: e.target.value as Token['team'] })}>
+              <option value="ally">Aliado</option>
+              <option value="enemy">Enemigo</option>
+            </select>
+          </label>
+        </div>
+      )}
+      {token && !token.group && (
         <div className="grid grid-cols-[4.5rem_1fr] items-center gap-x-2 gap-y-1 text-sm">
           <span className="text-slate-500">Jugador</span>
           <input className={input} value={token.playerName ?? ''} placeholder="Nombre (opcional)" onFocus={checkpoint} onChange={(e) => patchToken(token.id, { playerName: e.target.value || undefined })} />

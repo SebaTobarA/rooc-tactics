@@ -28,6 +28,7 @@ export function newStrategy(modeId: string, mapId: string): Strategy {
     allySide: 'green',
     roster: [],
     parties: [1, 2, 3, 4].map((n) => emptyParty(n, size)),
+    raids: [],
     steps: [emptyStep('Inicio')],
     createdAt: now,
     updatedAt: now,
@@ -77,7 +78,8 @@ export const useStrategyStore = create<StrategyState>((set, get) => ({
   stepIndex: 0,
   past: [],
   future: [],
-  open: (strategy) => set({ strategy, stepIndex: 0, past: [], future: [] }),
+  // Las estrategias guardadas antes de que existieran las raids no traen el campo.
+  open: (strategy) => set({ strategy: { ...strategy, raids: strategy.raids ?? [] }, stepIndex: 0, past: [], future: [] }),
   setStepIndex: (index) => set((s) => ({ stepIndex: Math.max(0, Math.min(s.strategy.steps.length - 1, index)) })),
   checkpoint: () => set((s) => ({ past: [...s.past.slice(-MAX_HISTORY + 1), s.strategy], future: [] })),
   set: (fn) => {

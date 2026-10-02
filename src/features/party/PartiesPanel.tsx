@@ -8,8 +8,9 @@ import { useMapStore } from '../../store/mapStore.ts';
 import { useStrategyStore } from '../../store/strategyStore.ts';
 import { useUiStore } from '../../store/uiStore.ts';
 import type { Party, Player, RoleId } from '../../types/index.ts';
+import { mergeParty, placeGroupToken, raidOf, setPartyRaid, spawnPosition, splitParty } from './groupActions.ts';
 import {
-  addJobToParty, addParty, addPlayer, applyTemplate, assignPlayer, deleteTemplate, importPlayers, listTemplates, partyOf, patchPlayer, placePartyAtSpawn,
+  addJobToParty, addParty, addPlayer, applyTemplate, assignPlayer, deleteTemplate, importPlayers, listTemplates, partyOf, patchPlayer,
   removeParty, removePlayer, renameParty, saveTemplate, summarize, unassignPlayer, type ImportResult,
 } from './partyActions.ts';
 
@@ -56,8 +57,17 @@ function PartyCard({ party, roster, onError }: { party: Party; roster: Player[];
   const [templates, setTemplates] = useState(listTemplates);
   const summary = summarize(party, roster);
   const allySide = useStrategyStore((st) => st.strategy.allySide);
+  const raids = useStrategyStore((st) => st.strategy.raids);
+  const index = useStrategyStore((st) => st.strategy.parties.findIndex((p) => p.id === party.id));
   const respawn = useMapStore((st) => st.map.markers.find((m) => m.kind === 'respawn' && m.side === allySide)?.pos);
   const { setSelection, setTool } = useUiStore();
+  const raid = raidOf(raids, party.id);
+  const spawn = spawnPosition(respawn, index);
+  const show = (ids: string[]) => {
+    if (!ids.length) return;
+    setTool('select');
+    setSelection(ids);
+  };
   const drop = (slot?: number) => (e: DragEvent) => {
     const id = e.dataTransfer.getData(PLAYER_MIME);
     if (!id) return;
@@ -100,21 +110,26 @@ function PartyCard({ party, roster, onError }: { party: Party; roster: Player[];
         })}
       </div>
 
+      <label className="mt-2 grid grid-cols-[3rem_1fr] items-center gap-1 text-xs text-slate-500">
+        Raid
+        <select className={`${input} text-xs`} value={raid?.id ?? ''} aria-label="Raid de la party" onChange={(e) => onError(setPartyRaid(party.id, e.target.value || null))}>
+          <option value="">Sin raid (party suelta)</option>
+          {raids.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+        </select>
+      </label>
+
       <div className="mt-2 grid grid-cols-2 gap-1">
         <div
-          draggable={summary.size > 0}
+          draggable
           onDragStart={(e) => { e.dataTransfer.setData(PARTY_MIME, party.id); e.dataTransfer.effectAllowed = 'copy'; }}
-          title="Arrastra al mapa para colocar la party completa donde la sueltes"
-          className={`rounded border border-dashed px-2 py-1 text-center text-xs ${summary.size ? 'cursor-grab border-sky-500 text-sky-600 dark:text-sky-300' : 'border-slate-400 text-slate-500 opacity-60'}`}
+          title="Arrastra al mapa: la party queda como una sola ficha"
+          className="cursor-grab rounded border border-dashed border-sky-500 px-2 py-1 text-center text-xs text-sky-600 dark:text-sky-300"
         >
           ⠿ Arrastrar al mapa
         </div>
-        <button className={`${button} text-xs`} disabled={!summary.size} title="Coloca la party junto al respawn de mi guild" onClick={() => {
-          const ids = placePartyAtSpawn(party.id, respawn);
-          if (ids.length) { setTool('select'); setSelection(ids); }
-        }}>
-          Colocar en el mapa
-        </button>
+        <button className={`${button} text-xs`} title="Pone la ficha de la party junto al respawn de mi guild" onClick={() => show(placeGroupToken('party', party.id, spawn))}>Colocar en el mapa</button>
+        <button className={`${button} text-xs`} disabled={!summary.size} title="En este paso, reemplaza la ficha de la party por un token por jugador" onClick={() => show(splitParty(party.id, spawn))}>Desplegar jugadores</button>
+        <button className={`${button} text-xs`} title="En este paso, vuelve a juntar a los jugadores en una sola ficha" onClick={() => show(mergeParty(party.id, spawn))}>Agrupar en ficha</button>
       </div>
 
       <div className="mt-2 flex flex-wrap gap-1 text-xs">
@@ -161,7 +176,7 @@ export function PartiesPanel() {
     <div className="space-y-3 p-3">
       {error && <p className="rounded bg-red-500/20 px-2 py-1 text-sm text-red-600 dark:text-red-300" role="alert">{error}</p>}
       <p className="text-xs text-slate-500">
-        Elige un job en cada slot (o arrastra jugadores desde la banca). Luego usa «Arrastrar al mapa» o «Colocar en el mapa» para poner los tokens de la party agrupados.
+        Elige un job en cada slot (o arrastra jugadores desde la banca). En el mapa la party es una sola ficha: pasa el cursor por encima para ver quiénes van. «Desplegar jugadores» la abre en tokens individuales solo en el paso actual.
         Máximo {mode?.partySize ?? 5} por party{mode?.maxSameJobPerTeam ? ` y ${mode.maxSameJobPerTeam} del mismo job por equipo` : ''}.
       </p>
 

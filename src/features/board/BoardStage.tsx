@@ -37,6 +37,9 @@ export function BoardStage() {
   const flipped = useStrategyStore((s) => s.strategy.flipped);
   const allySide = useStrategyStore((s) => s.strategy.allySide);
   const parties = useStrategyStore((s) => s.strategy.parties);
+  const raids = useStrategyStore((s) => s.strategy.raids);
+  const setHover = useUiStore((s) => s.setHover);
+  const hoverToken = useCallback((id: string | null, x: number, y: number) => setHover(id ? { tokenId: id, x, y } : null), [setHover]);
   const { tool, layers, selection, setSelection, setCursor } = useUiStore();
   const editor = useEditorStore();
 
@@ -369,8 +372,8 @@ export function BoardStage() {
         </Layer>
         <Layer visible={!editing}>
           <Drawings drawings={drawings} proj={proj} selection={selection} interactive={selecting} onSelect={selectItem} onMoveStart={startMove} onMove={moveItem} />
-          <Tokens tokens={tokens} proj={proj} grid={map.numpad} parties={parties} allySide={allySide} selection={selection}
-            interactive={selecting} onSelect={selectItem} onMoveStart={startMove} onMove={moveItem} />
+          <Tokens tokens={tokens} proj={proj} grid={map.numpad} parties={parties} raids={raids} allySide={allySide} selection={selection}
+            interactive={selecting} onSelect={selectItem} onMoveStart={startMove} onMove={moveItem} onHover={hoverToken} />
           {controller.draft && <DrawingShape d={controller.draft} proj={proj} />}
           {band && (
             <Rect x={Math.min(band.a.x, band.b.x)} y={Math.min(band.a.y, band.b.y)} width={Math.abs(band.b.x - band.a.x)} height={Math.abs(band.b.y - band.a.y)}

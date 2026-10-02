@@ -36,6 +36,8 @@ export interface TokenLook {
   label: string;
   selected: boolean;
   locked: boolean;
+  /** Ficha de grupo: `party` es un círculo oscuro, `raid` un hexágono. */
+  shape?: 'party' | 'raid';
 }
 
 /** Token: círculo del job con anillo de equipo, número de party, punto de rol y etiqueta. 256×256. */
@@ -54,7 +56,14 @@ export function tokenTexture(t: TokenLook): THREE.CanvasTexture {
     }
     ctx.globalAlpha = t.locked ? 0.8 : 1;
     ctx.beginPath();
-    ctx.arc(cx, cy, 62, 0, Math.PI * 2);
+    if (t.shape === 'raid') {
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
+        ctx[i ? 'lineTo' : 'moveTo'](cx + Math.cos(a) * 70, cy + Math.sin(a) * 70);
+      }
+      ctx.closePath();
+    } else ctx.arc(cx, cy, 62, 0, Math.PI * 2);
+    ctx.lineJoin = 'round';
     ctx.fillStyle = t.color;
     ctx.fill();
     ctx.lineWidth = 16;

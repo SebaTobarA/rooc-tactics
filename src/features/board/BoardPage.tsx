@@ -14,6 +14,7 @@ import { ErrorBoundary } from './ErrorBoundary.tsx';
 import { HelpDialog } from './HelpDialog.tsx';
 import { Legend } from './Legend.tsx';
 import { RightPanel } from './RightPanel.tsx';
+import { TokenTooltip } from './TokenTooltip.tsx';
 import { Toolbar } from './Toolbar.tsx';
 import { active, button } from './ui.ts';
 import { useBoardShortcuts } from './useBoardShortcuts.ts';
@@ -106,6 +107,7 @@ export function BoardPage({ mapId }: { mapId: string }) {
         {editorActive ? <EditorPanel /> : <RightPanel />}
       </div>
       {!editorActive && <Timeline />}
+      <TokenTooltip />
       <HelpDialog />
       {shareOpen && <ShareDialog onClose={() => setShareOpen(false)} />}
     </div>

@@ -12,7 +12,7 @@ import { hitDrawing } from '../../board/hit.ts';
 import { stageHandle } from '../../board/stageHandle.ts';
 import { isDrawingTool, useToolController } from '../../board/useToolController.ts';
 import { useDisplayedStep } from '../../timeline/displayedStep.ts';
-import { Drawings3D, Markers3D, Numpad3D, Tokens3D, TOKEN_Y } from './BoardObjects3D.tsx';
+import { Drawings3D, Markers3D, Numpad3D, Tokens3D, TOKEN_Y, tokenSpriteSize } from './BoardObjects3D.tsx';
 import { MapMeshes } from './MapMeshes.tsx';
 
 const SKY = '#a9d3ee';
@@ -80,6 +80,8 @@ export default function Scene3D() {
   const flipped = useStrategyStore((s) => s.strategy.flipped);
   const allySide = useStrategyStore((s) => s.strategy.allySide);
   const parties = useStrategyStore((s) => s.strategy.parties);
+  const raids = useStrategyStore((s) => s.strategy.raids);
+  const setHover = useUiStore((s) => s.setHover);
   const { tool, layers, selection, setSelection, setCursor } = useUiStore();
 
   const proj = useMemo(() => makeProjection3(map.aspect), [map.aspect]);
@@ -187,7 +189,7 @@ export default function Scene3D() {
       if (!(t.team === 'ally' ? layers.allies : layers.enemies)) continue;
       const [x, z] = proj.toGround(t.pos);
       const center = toScreen(new THREE.Vector3(x, TOKEN_Y + 0.5, z));
-      const edge = toScreen(new THREE.Vector3(x, TOKEN_Y + 2.4, z));
+      const edge = toScreen(new THREE.Vector3(x, TOKEN_Y + 0.5 + tokenSpriteSize(t) * 0.27, z));
       if (!center || !edge) continue;
       const radius = Math.max(14, Math.hypot(edge.x - center.x, edge.y - center.y));
       const dist = Math.hypot(center.x - clientX, center.y - clientY);
@@ -249,7 +251,12 @@ export default function Scene3D() {
       d.moved = true;
       moveItems(d.ids, { x: p.x - d.last.x, y: p.y - d.last.y });
       d.last = p;
-    } else controller.move(p);
+    } else {
+      controller.move(p);
+      // Mensaje emergente del token bajo el cursor.
+      const over = e.buttons === 0 && !isDrawingTool(tool) ? tokenAt(e.clientX, e.clientY) : null;
+      setHover(over ? { tokenId: over, x: e.clientX, y: e.clientY } : null);
+    }
   };
 
   const onPointerUp = (e: ReactPointerEvent) => {
@@ -285,7 +292,7 @@ export default function Scene3D() {
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
-      onPointerLeave={() => setCursor(null)}
+      onPointerLeave={() => { setCursor(null); setHover(null); }}
       onWheel={(e) => zoomBy(Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)))}
       onContextMenu={(e) => e.preventDefault()}
       onDragOver={(e) => acceptsBoardDrop(e.dataTransfer) && e.preventDefault()}
@@ -308,7 +315,7 @@ export default function Scene3D() {
         {layers.grid && <Numpad3D map={map} proj={proj} azimuth={azimuth} />}
         {layers.objectives && <Markers3D map={map} proj={proj} objectives={step.objectives} labelHeight={0.7} />}
         <Drawings3D drawings={drawings} draft={controller.draft} proj={proj} aspect={map.aspect} selection={selection} />
-        <Tokens3D tokens={tokens} proj={proj} map={map} parties={parties} allySide={allySide} selection={selection} />
+        <Tokens3D tokens={tokens} proj={proj} map={map} parties={parties} raids={raids} allySide={allySide} selection={selection} />
       </Canvas>
       <p className="pointer-events-none absolute left-1/2 top-12 -translate-x-1/2 rounded-md bg-slate-900/75 px-3 py-1 text-xs text-slate-100 shadow">
         Arrastra para girar · rueda para acercarte · flechas para recorrer · espacio + arrastrar para desplazar

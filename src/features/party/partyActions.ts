@@ -4,7 +4,6 @@ import { roles } from '../../config/roles.ts';
 import { clamp01, round4 } from '../../lib/geometry.ts';
 import { newId } from '../../lib/id.ts';
 import { emptyParty, useStrategyStore } from '../../store/strategyStore.ts';
-import { useUiStore } from '../../store/uiStore.ts';
 import type { Party, Player, RoleId, Strategy, Token, Vec2 } from '../../types/index.ts';
 
 const store = () => useStrategyStore.getState();
@@ -112,7 +111,12 @@ export function addParty(): void {
 }
 
 export function removeParty(id: string): void {
-  change((s) => ({ ...s, parties: s.parties.filter((p) => p.id !== id) }));
+  change((s) => ({
+    ...s,
+    parties: s.parties.filter((p) => p.id !== id),
+    raids: s.raids.map((r) => ({ ...r, partyIds: r.partyIds.filter((x) => x !== id) })),
+    steps: s.steps.map((step) => ({ ...step, tokens: step.tokens.filter((t) => !(t.group?.type === 'party' && t.group.id === id)) })),
+  }));
 }
 
 export function renameParty(id: string, name: string): void {
@@ -207,23 +211,6 @@ export function placePlayers(playerIds: string[], pos: Vec2): string[] {
     return { ...step, tokens };
   });
   return ids;
-}
-
-export function placeParty(partyId: string, pos: Vec2): string[] {
-  const party = store().strategy.parties.find((p) => p.id === partyId);
-  const members = (party?.slots ?? []).filter((x): x is string => !!x);
-  if (party && !members.length) useUiStore.getState().notify(`${party.name} está vacía: agrégale jobs o jugadores en la pestaña Partys antes de llevarla al mapa.`);
-  return placePlayers(members, pos);
-}
-
-/** Coloca la party cerca del primer respawn de mi guild (o al centro), separando las partys entre sí. */
-export function placePartyAtSpawn(partyId: string, respawn: Vec2 | undefined): string[] {
-  const parties = store().strategy.parties;
-  const index = Math.max(0, parties.findIndex((p) => p.id === partyId));
-  const base = respawn ?? { x: 0.5, y: 0.5 };
-  // Hacia el centro del mapa y en abanico, para no pisar el respawn ni a las otras partys.
-  const toward = { x: Math.sign(0.5 - base.x) || 1, y: Math.sign(0.5 - base.y) || 1 };
-  return placeParty(partyId, { x: base.x + toward.x * (0.05 + (index % 3) * 0.075), y: base.y + toward.y * (0.09 + Math.floor(index / 3) * 0.13) });
 }
 
 // ---------- Resumen y plantillas ----------
