@@ -20,7 +20,7 @@ export function interpolateSteps(a: Step, b: Step, t: number): Step {
   return { ...(late ? b : a), tokens };
 }
 
-/** Paso que deben dibujar las vistas 2D y 2.5D: el actual, o el interpolado durante la reproducción. */
+/** Paso que deben dibujar las vistas 2D y 3D: el actual, o el interpolado durante la reproducción. */
 export function useDisplayedStep(): Step {
   const steps = useStrategyStore((s) => s.strategy.steps);
   const stepIndex = useStrategyStore((s) => s.stepIndex);

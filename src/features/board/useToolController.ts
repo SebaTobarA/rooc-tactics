@@ -12,7 +12,7 @@ export const isDrawingTool = (tool: Tool) => tool !== 'select' && tool !== 'pan'
 
 /**
  * Lógica de las herramientas de dibujo en coordenadas normalizadas.
- * La comparten la vista 2D y la 2.5D: cada vista solo convierte el puntero a 0–1.
+ * La comparten la vista 2D y la 3D: cada vista solo convierte el puntero a 0–1.
  */
 export function useToolController(aspect: number) {
   const [draft, setDraft] = useState<Draft | null>(null);

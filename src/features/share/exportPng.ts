@@ -31,7 +31,7 @@ function wrap(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): st
   return lines;
 }
 
-/** Imagen del lienzo activo (2D o 2.5D) tal como se ve ahora. */
+/** Imagen del lienzo activo (2D o 3D) tal como se ve ahora. */
 function captureView(view3d: boolean): string | null {
   try {
     if (view3d) return stageHandle.canvas3d?.()?.toDataURL('image/png') ?? null;

@@ -20,7 +20,7 @@ export interface Tree {
 
 /**
  * Reparte árboles sobre todo lo que queda dentro del contorno y no es transitable, agua ni roca.
- * Grilla con desorden determinista: el mismo mapa siempre da el mismo bosque, en 2D y en 2.5D.
+ * Grilla con desorden determinista: el mismo mapa siempre da el mismo bosque, en 2D y en 3D.
  * `cols` es la cantidad de árboles a lo ancho del mapa.
  */
 export function scatterForest(g: MapGeometry, aspect: number, cols: number, seed = 7): Tree[] {

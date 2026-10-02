@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { makeProjection3, type Projection3 } from '../../../lib/projection.ts';
+import { makeProjection3 } from '../../../lib/projection.ts';
 import { moveItems } from '../../../store/boardActions.ts';
 import { useMapStore } from '../../../store/mapStore.ts';
 import { useStrategyStore } from '../../../store/strategyStore.ts';
@@ -15,66 +15,49 @@ import { useDisplayedStep } from '../../timeline/displayedStep.ts';
 import { Drawings3D, Markers3D, Numpad3D, Tokens3D, TOKEN_Y } from './BoardObjects3D.tsx';
 import { MapMeshes } from './MapMeshes.tsx';
 
-/** Elevación de la cámara isométrica. */
-const ISO_ELEVATION = (35.264 * Math.PI) / 180;
-const ISO_DISTANCE = 300;
 const SKY = '#a9d3ee';
-const FREE_MIN_DIST = 3;
-const FREE_MAX_DIST = 220;
-/** Altura del punto al que mira la cámara libre: más o menos la de un personaje. */
+const MIN_DIST = 3;
+const MAX_DIST = 220;
+const FOV = 50;
+/** Altura del punto al que mira la cámara: más o menos la de un personaje. */
 const EYE = 1.6;
 const DEG = Math.PI / 180;
 const isTyping = (e: KeyboardEvent) => e.target instanceof HTMLElement && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
 
-/** `iso`: ortográfica isométrica. `free`: perspectiva que orbita, se acerca hasta el suelo y recorre el mapa. */
-type CameraMode = 'iso' | 'free';
-
+/** Cámara en perspectiva que orbita un punto del suelo, se acerca hasta quedar a ras de suelo y recorre el mapa. */
 interface Rig {
-  /** Giro horizontal extra, en radianes (en isométrica, múltiplos de 90°). */
+  /** Giro horizontal, en radianes. */
   yaw: number;
-  /** Isométrica: factor de zoom. */
-  zoom: number;
-  /** Libre: elevación sobre el horizonte y distancia al punto observado. */
+  /** Elevación sobre el horizonte. */
   pitch: number;
+  /** Distancia al punto observado. */
   dist: number;
   target: [number, number];
 }
 
-const INITIAL: Rig = { yaw: 0, zoom: 1, pitch: 32 * DEG, dist: 95, target: [0, 0] };
+const INITIAL: Rig = { yaw: 0, pitch: 32 * DEG, dist: 95, target: [0, 0] };
 
 interface Handle {
-  camera: THREE.Camera;
+  camera: THREE.PerspectiveCamera;
   canvas: HTMLCanvasElement;
 }
 
-/** Coloca la cámara según el modo y la expone, junto al canvas, al resto de la vista. */
-function CameraRig({ mode, rig, azimuth, proj, handle }: { mode: CameraMode; rig: Rig; azimuth: number; proj: Projection3; handle: { current: Handle | null } }) {
-  const camera = useThree((s) => s.camera);
+/** Coloca la cámara y la expone, junto al canvas, al resto de la vista. */
+function CameraRig({ rig, azimuth, handle }: { rig: Rig; azimuth: number; handle: { current: Handle | null } }) {
+  const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
   const gl = useThree((s) => s.gl);
   const size = useThree((s) => s.size);
   const invalidate = useThree((s) => s.invalidate);
   const apply = useCallback(() => {
     const [tx, tz] = rig.target;
-    const elevation = mode === 'iso' ? ISO_ELEVATION : rig.pitch;
-    const dir = new THREE.Vector3(Math.sin(azimuth) * Math.cos(elevation), Math.sin(elevation), Math.cos(azimuth) * Math.cos(elevation));
-    if (camera instanceof THREE.OrthographicCamera) {
-      camera.position.set(tx, 0, tz).addScaledVector(dir, ISO_DISTANCE);
-      camera.lookAt(tx, 0, tz);
-      // Zoom 1 = el mapa completo cabe en el lienzo.
-      const span = (proj.w + proj.d) * Math.SQRT1_2;
-      camera.zoom = rig.zoom * Math.min(size.width / (span * 1.06), size.height / (span * Math.sin(ISO_ELEVATION) + 14));
-      camera.near = 1;
-      camera.far = ISO_DISTANCE * 3;
-      camera.updateProjectionMatrix();
-    } else if (camera instanceof THREE.PerspectiveCamera) {
-      camera.position.set(tx, EYE, tz).addScaledVector(dir, rig.dist);
-      camera.lookAt(tx, EYE, tz);
-      if (size.height > 0) camera.aspect = size.width / size.height;
-      camera.updateProjectionMatrix();
-    }
+    const dir = new THREE.Vector3(Math.sin(azimuth) * Math.cos(rig.pitch), Math.sin(rig.pitch), Math.cos(azimuth) * Math.cos(rig.pitch));
+    camera.position.set(tx, EYE, tz).addScaledVector(dir, rig.dist);
+    camera.lookAt(tx, EYE, tz);
+    if (size.height > 0) camera.aspect = size.width / size.height;
+    camera.updateProjectionMatrix();
     camera.updateMatrixWorld();
     handle.current = { camera, canvas: gl.domElement };
-  }, [mode, rig, azimuth, proj, camera, gl, size, handle]);
+  }, [rig, azimuth, camera, gl, size, handle]);
   useLayoutEffect(() => {
     apply();
     invalidate();
@@ -89,7 +72,7 @@ function CameraRig({ mode, rig, azimuth, proj, handle }: { mode: CameraMode; rig
   return null;
 }
 
-/** Vista 2.5D / 3D: el mismo mapa y la misma estrategia que la vista 2D, en volumen. */
+/** Vista 3D: el mismo mapa y la misma estrategia que la vista 2D, en volumen. */
 export default function Scene3D() {
   const map = useMapStore((s) => s.map);
   const step = useDisplayedStep();
@@ -101,7 +84,6 @@ export default function Scene3D() {
 
   const proj = useMemo(() => makeProjection3(map.aspect), [map.aspect]);
   const controller = useToolController(map.aspect);
-  const [mode, setMode] = useState<CameraMode>('iso');
   const [rig, setRig] = useState<Rig>(INITIAL);
   const [spaceDown, setSpaceDown] = useState(false);
   const handle = useRef<Handle | null>(null);
@@ -135,9 +117,8 @@ export default function Scene3D() {
     };
   }, []);
 
-  // Cámara libre: las flechas recorren el mapa mientras se mantienen pulsadas.
+  // Las flechas recorren el mapa mientras se mantienen pulsadas.
   useEffect(() => {
-    if (mode !== 'free') return;
     const held = new Set<string>();
     let raf = 0;
     let last = 0;
@@ -172,7 +153,7 @@ export default function Scene3D() {
       window.removeEventListener('keydown', down);
       window.removeEventListener('keyup', up);
     };
-  }, [mode, clampTarget]);
+  }, [clampTarget]);
 
   // Para exportar a PNG desde fuera.
   useEffect(() => {
@@ -222,7 +203,7 @@ export default function Scene3D() {
       pan.current = { x: e.clientX, y: e.clientY };
       return;
     }
-    if (e.button === 2 && mode === 'free') {
+    if (e.button === 2) {
       orbit.current = { x: e.clientX, y: e.clientY, moved: false };
       return;
     }
@@ -231,9 +212,8 @@ export default function Scene3D() {
     if (isDrawingTool(tool)) return void (p && controller.down(p));
     const id = tokenAt(e.clientX, e.clientY) ?? (p ? [...step.drawings].reverse().find((d) => (d.tool === 'text' ? layers.notes : layers.drawings) && hitDrawing(d, p, map.aspect, 0.015))?.id : undefined);
     if (!id || !p) {
-      // En cámara libre, arrastrar sobre el vacío gira la vista; un clic sin arrastre quita la selección.
-      if (mode === 'free') orbit.current = { x: e.clientX, y: e.clientY, moved: false };
-      else if (!e.shiftKey) setSelection([]);
+      // Arrastrar sobre el vacío gira la vista; un clic sin arrastre quita la selección.
+      orbit.current = { x: e.clientX, y: e.clientY, moved: false };
       return;
     }
     const ids = e.shiftKey ? (selection.includes(id) ? selection.filter((x) => x !== id) : [...selection, id]) : selection.includes(id) ? selection : [id];
@@ -247,12 +227,9 @@ export default function Scene3D() {
       const dx = e.clientX - pan.current.x;
       const dy = e.clientY - pan.current.y;
       pan.current = { x: e.clientX, y: e.clientY };
-      if (h.camera instanceof THREE.OrthographicCamera) moveTarget(-dx / h.camera.zoom, dy / h.camera.zoom / Math.sin(ISO_ELEVATION));
-      else {
-        // Unidades de mundo por píxel a la distancia del punto observado.
-        const perPx = (2 * rig.dist * Math.tan((50 * DEG) / 2)) / h.canvas.clientHeight;
-        moveTarget(-dx * perPx, (dy * perPx) / Math.max(0.35, Math.sin(rig.pitch)));
-      }
+      // Unidades de mundo por píxel a la distancia del punto observado.
+      const perPx = (2 * rig.dist * Math.tan((FOV * DEG) / 2)) / h.canvas.clientHeight;
+      moveTarget(-dx * perPx, (dy * perPx) / Math.max(0.35, Math.sin(rig.pitch)));
       return;
     }
     if (orbit.current) {
@@ -291,30 +268,20 @@ export default function Scene3D() {
     if (ids.length) setSelection(ids);
   };
 
-  const zoomBy = (f: number) =>
-    setRig((r) => (mode === 'iso' ? { ...r, zoom: Math.min(8, Math.max(0.4, r.zoom * f)) } : { ...r, dist: Math.min(FREE_MAX_DIST, Math.max(FREE_MIN_DIST, r.dist / f)) }));
+  const zoomBy = (f: number) => setRig((r) => ({ ...r, dist: Math.min(MAX_DIST, Math.max(MIN_DIST, r.dist / f)) }));
   const turn = (quarters: number) => setRig((r) => ({ ...r, yaw: r.yaw + (quarters * Math.PI) / 2 }));
-  const switchMode = (next: CameraMode) => {
-    if (next === mode) return;
-    // Al volver a isométrica el giro se ajusta al múltiplo de 90° más cercano.
-    setRig((r) => ({ ...r, yaw: next === 'iso' ? Math.round(r.yaw / (Math.PI / 2)) * (Math.PI / 2) : r.yaw }));
-    setMode(next);
-  };
   /** Baja la cámara al punto observado, a la altura de un personaje. */
   const groundLevel = () => setRig((r) => ({ ...r, pitch: 9 * DEG, dist: 9 }));
 
   const tokens = step.tokens.filter((t) => (t.team === 'ally' ? layers.allies : layers.enemies));
   const drawings = step.drawings.filter((d) => (d.tool === 'text' ? layers.notes : layers.drawings));
   const btn = 'rounded px-2 py-1 hover:bg-slate-700';
-  const on = 'bg-sky-600 hover:bg-sky-500';
-  const free = mode === 'free';
-  const background = free ? SKY : map.style.fog;
 
   return (
     <div
       ref={wrapRef}
       className="relative h-full w-full touch-none overflow-hidden"
-      style={{ background, cursor: spaceDown || tool === 'pan' ? 'grab' : isDrawingTool(tool) ? 'crosshair' : 'default' }}
+      style={{ background: SKY, cursor: spaceDown || tool === 'pan' ? 'grab' : isDrawingTool(tool) ? 'crosshair' : 'default' }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -324,49 +291,34 @@ export default function Scene3D() {
       onDragOver={(e) => acceptsBoardDrop(e.dataTransfer) && e.preventDefault()}
       onDrop={onDrop}
     >
-      {/* Sin sombras en tiempo real y con dpr acotado: pensado para gráficas integradas. El canvas se recrea al cambiar de cámara. */}
-      <Canvas
-        key={mode}
-        orthographic={!free}
-        camera={free ? { fov: 50, near: 0.3, far: 900 } : undefined}
-        flat
-        frameloop="demand"
-        dpr={[1, 1.5]}
-        gl={{ antialias: true, preserveDrawingBuffer: true, powerPreference: 'high-performance' }}
-      >
-        <color attach="background" args={[background]} />
-        {free && <fog attach="fog" args={[SKY, 70, 420]} />}
-        <CameraRig mode={mode} rig={rig} azimuth={azimuth} proj={proj} handle={handle} />
+      {/* Sin sombras en tiempo real, con dpr acotado y redibujo solo cuando algo cambia: pensado para gráficas integradas. */}
+      <Canvas camera={{ fov: FOV, near: 0.3, far: 900 }} flat frameloop="demand" dpr={[1, 1.5]} gl={{ antialias: true, preserveDrawingBuffer: true, powerPreference: 'high-performance' }}>
+        <color attach="background" args={[SKY]} />
+        <fog attach="fog" args={[SKY, 70, 420]} />
+        <CameraRig rig={rig} azimuth={azimuth} handle={handle} />
         {/* Luz de cielo + sol cálido desde el noroeste (las sombras van horneadas en la textura del suelo). */}
         <hemisphereLight args={['#ffffff', '#5d7a55', 1.7]} />
         <directionalLight position={[-60, 90, -45]} intensity={1.7} color="#fff3d6" />
-        {free && (
-          // Mar de nubes hasta el horizonte, para que el borde del mapa no dé al vacío.
-          <mesh rotation-x={-Math.PI / 2} position-y={-3.4}>
-            <circleGeometry args={[800, 48]} />
-            <meshBasicMaterial color={map.style.cloud} />
-          </mesh>
-        )}
+        {/* Mar de nubes hasta el horizonte, para que el borde del mapa no dé al vacío. */}
+        <mesh rotation-x={-Math.PI / 2} position-y={-3.4}>
+          <circleGeometry args={[800, 48]} />
+          <meshBasicMaterial color={map.style.cloud} />
+        </mesh>
         {layers.map && <MapMeshes map={map} proj={proj} />}
         {layers.grid && <Numpad3D map={map} proj={proj} azimuth={azimuth} />}
-        {layers.objectives && <Markers3D map={map} proj={proj} objectives={step.objectives} labelHeight={free ? 0.7 : 1.2} />}
+        {layers.objectives && <Markers3D map={map} proj={proj} objectives={step.objectives} labelHeight={0.7} />}
         <Drawings3D drawings={drawings} draft={controller.draft} proj={proj} aspect={map.aspect} selection={selection} />
         <Tokens3D tokens={tokens} proj={proj} map={map} parties={parties} allySide={allySide} selection={selection} />
       </Canvas>
-      {free && (
-        <p className="pointer-events-none absolute left-1/2 top-12 -translate-x-1/2 rounded-md bg-slate-900/75 px-3 py-1 text-xs text-slate-100 shadow">
-          Arrastra para girar · rueda para acercarte · flechas para recorrer · espacio + arrastrar para desplazar
-        </p>
-      )}
+      <p className="pointer-events-none absolute left-1/2 top-12 -translate-x-1/2 rounded-md bg-slate-900/75 px-3 py-1 text-xs text-slate-100 shadow">
+        Arrastra para girar · rueda para acercarte · flechas para recorrer · espacio + arrastrar para desplazar
+      </p>
       <div className="absolute bottom-2 right-2 flex items-center gap-1 rounded-md bg-slate-900/80 p-1 text-xs text-slate-200 shadow" onPointerDown={(e) => e.stopPropagation()}>
-        <button className={`${btn} ${!free ? on : ''}`} onClick={() => switchMode('iso')} title="Cámara isométrica (2.5D)">Isométrica</button>
-        <button className={`${btn} ${free ? on : ''}`} onClick={() => switchMode('free')} title="Cámara libre en perspectiva: gira, acércate y recorre el mapa">Libre 3D</button>
-        {free && <button className={btn} onClick={groundLevel} title="Baja la cámara a la altura de un personaje">A ras de suelo</button>}
+        <button className={btn} onClick={groundLevel} title="Baja la cámara a la altura de un personaje">A ras de suelo</button>
         <span className="mx-1 h-4 w-px bg-slate-600" />
         <button className={btn} onClick={() => turn(-1)} title="Rotar 90° a la izquierda">⟲ 90°</button>
         <button className={btn} onClick={() => turn(1)} title="Rotar 90° a la derecha">90° ⟳</button>
         <button className={btn} onClick={() => zoomBy(1 / 1.25)} title="Alejar">−</button>
-        {!free && <span className="w-10 text-center tabular-nums">{Math.round(rig.zoom * 100)}%</span>}
         <button className={btn} onClick={() => zoomBy(1.25)} title="Acercar">+</button>
         <button className={btn} onClick={() => setRig(INITIAL)} title="Restablecer la cámara">Encajar</button>
       </div>

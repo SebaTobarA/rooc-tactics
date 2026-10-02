@@ -18,7 +18,7 @@ import { Toolbar } from './Toolbar.tsx';
 import { active, button } from './ui.ts';
 import { useBoardShortcuts } from './useBoardShortcuts.ts';
 
-// Three.js se carga solo al abrir la vista 2.5D.
+// Three.js se carga solo al abrir la vista 3D.
 const Scene3D = lazy(() =>
   import('../map-render/three/Scene3D.tsx').catch((error: unknown) => {
     // Tras publicar una versión nueva, el archivo que pide una pestaña antigua ya no existe: se recarga una sola vez.
@@ -75,9 +75,9 @@ export function BoardPage({ mapId }: { mapId: string }) {
         <button className={button} onClick={() => change((s) => ({ ...s, allySide: s.allySide === 'green' ? 'red' : 'green' }))} title="Guild a la que pertenecen los tokens aliados">
           Mi guild: {strategy.allySide === 'green' ? 'Verde' : 'Roja'}
         </button>
-        <div className="flex" title="Alterna entre la vista cenital y la isométrica; no cambia ningún dato">
+        <div className="flex" title="Alterna entre la vista cenital y la 3D; no cambia ningún dato">
           <button className={`${button} rounded-r-none ${!show3d ? active : ''}`} disabled={editorActive} onClick={() => setViewMode('2d')}>2D</button>
-          <button className={`${button} rounded-l-none border-l-0 ${show3d ? active : ''}`} disabled={editorActive} onClick={() => setViewMode('3d')}>2.5D</button>
+          <button className={`${button} rounded-l-none border-l-0 ${show3d ? active : ''}`} disabled={editorActive} onClick={() => setViewMode('3d')}>3D</button>
         </div>
         <button className={`${button} ${strategy.flipped ? active : ''}`} onClick={() => change((s) => ({ ...s, flipped: !s.flipped }))} title="Rota la vista 180°; no cambia los datos">
           Invertir lados
@@ -89,8 +89,8 @@ export function BoardPage({ mapId }: { mapId: string }) {
         {!editorActive && <Toolbar />}
         <div className="relative min-w-0 flex-1">
           {show3d ? (
-            <ErrorBoundary label="la vista 2.5D" fallbackAction={{ text: 'Volver a la vista 2D', run: () => setViewMode('2d') }}>
-              <Suspense fallback={<p className="p-4 text-sm text-slate-400">Cargando la vista 2.5D…</p>}>
+            <ErrorBoundary label="la vista 3D" fallbackAction={{ text: 'Volver a la vista 2D', run: () => setViewMode('2d') }}>
+              <Suspense fallback={<p className="p-4 text-sm text-slate-400">Cargando la vista 3D…</p>}>
                 <Scene3D />
               </Suspense>
             </ErrorBoundary>

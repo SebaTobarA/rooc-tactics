@@ -44,7 +44,7 @@ export function fitView(proj: Projection, width: number, height: number, margin 
   return { scale, x: (width - proj.w * scale) / 2, y: (height - proj.h * scale) / 2 };
 }
 
-// ---------- Vista 2.5D ----------
+// ---------- Vista 3D ----------
 
 /** Ancho del mapa en unidades de mundo 3D. El suelo es el plano XZ, con Y hacia arriba. */
 export const WORLD3_W = 100;

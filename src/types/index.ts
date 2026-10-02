@@ -43,7 +43,7 @@ export interface Polygon {
   kind: PolygonKind;
   points: Vec2[];
   holes?: Vec2[][];
-  /** Altura relativa para la vista 2.5D (0 = suelo). */
+  /** Altura relativa para la vista 3D (0 = suelo). */
   height: number;
 }
 

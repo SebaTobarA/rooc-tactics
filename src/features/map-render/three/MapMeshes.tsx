@@ -184,7 +184,6 @@ export const MapMeshes = memo(function MapMeshes({ map, proj }: Props) {
       {g.plazas.map((c) => {
         const [x, z] = proj.toGround(c.center);
         const r = proj.len(c.radius);
-        const stones = c.kind === 'center' ? 12 : 0;
         return (
           <group key={c.id} position={[x, 0, z]}>
             {/* Plaza de piedra en dos escalones. */}
@@ -200,16 +199,6 @@ export const MapMeshes = memo(function MapMeshes({ map, proj }: Props) {
               <ringGeometry args={[r * 0.5, r * 0.56, 32]} />
               <meshLambertMaterial color={style.plazaStroke} />
             </mesh>
-            {Array.from({ length: stones }, (_, i) => {
-              const a = (i / stones) * Math.PI * 2;
-              const h = 1.6 + ((i * 7) % 5) * 0.35;
-              return (
-                <mesh key={i} position={[Math.cos(a) * r * 1.02, 0.2 + h / 2, Math.sin(a) * r * 1.02]} rotation-y={-a}>
-                  <boxGeometry args={[0.7, h, 0.9]} />
-                  <meshLambertMaterial color={style.wall} flatShading />
-                </mesh>
-              );
-            })}
           </group>
         );
       })}

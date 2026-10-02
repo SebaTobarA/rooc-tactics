@@ -83,7 +83,7 @@ export function ShareDialog({ onClose }: { onClose: () => void }) {
               <input type="file" accept="application/json,.json" className="hidden" onChange={(e) => void importJson(e.target.files?.[0])} />
             </label>
           </div>
-          <p className="text-xs text-slate-500">El PNG captura la vista actual ({viewMode === '3d' ? '2.5D' : '2D'}) e incluye el nombre del paso, su nota y la leyenda de partys.</p>
+          <p className="text-xs text-slate-500">El PNG captura la vista actual ({viewMode === '3d' ? '3D' : '2D'}) e incluye el nombre del paso, su nota y la leyenda de partys.</p>
         </section>
 
         <section className="space-y-2">

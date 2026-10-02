@@ -193,7 +193,7 @@ export function EditorPanel() {
                       {Object.entries(KIND_LABELS).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
                     </select>
                   </Field>
-                  <Field label="Altura 2.5D">
+                  <Field label="Altura 3D">
                     <NumberInput value={poly.height} step={0.5} max={10} onChange={(v) => change((m) => (findPolygon(m.geometry, sel.list, sel.id)!.height = v))} />
                   </Field>
                 </>

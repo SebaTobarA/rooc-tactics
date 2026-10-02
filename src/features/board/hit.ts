@@ -10,7 +10,7 @@ function distToSegment(p: Vec2, a: Vec2, b: Vec2, aspect: number): number {
   return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
 }
 
-/** ¿El punto toca el dibujo? Sirve para el borrador en 2D y 2.5D. */
+/** ¿El punto toca el dibujo? Sirve para el borrador en 2D y 3D. */
 export function hitDrawing(d: Drawing, p: Vec2, aspect: number, tol = 0.012): boolean {
   const pts = d.points;
   if (d.tool === 'text' || d.tool === 'ping') return normDist(pts[0], p, aspect) < tol * 2.5;

@@ -5,7 +5,7 @@ import type { MapConfig, Vec2 } from '../../../types/index.ts';
 const WIDTH = 3072;
 
 /**
- * Textura del suelo de la vista 2.5D, pintada desde la misma geometría que el mapa 2D:
+ * Textura del suelo de la vista 3D, pintada desde la misma geometría que el mapa 2D:
  * tierra de bosque, senderos de arena con borde de pasto, agua y sombras horneadas de árboles y muros.
  * Hornear las sombras aquí evita los mapas de sombra en tiempo real (pensado para gráficas integradas).
  */
