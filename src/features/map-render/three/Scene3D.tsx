@@ -17,7 +17,8 @@ import { MapMeshes } from './MapMeshes.tsx';
 
 const SKY = '#a9d3ee';
 const MIN_DIST = 3;
-const MAX_DIST = 220;
+/** Distancia máxima = la de la vista inicial: desde ahí solo se acerca. */
+const MAX_DIST = 95;
 const FOV = 50;
 /** Altura del punto al que mira la cámara: más o menos la de un personaje. */
 const EYE = 1.6;

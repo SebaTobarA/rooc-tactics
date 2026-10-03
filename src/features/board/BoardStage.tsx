@@ -23,7 +23,6 @@ import { Tokens } from './konva/Tokens.tsx';
 import { stageHandle } from './stageHandle.ts';
 import { isDrawingTool, useToolController } from './useToolController.ts';
 
-const MIN_SCALE = 0.2;
 const MAX_SCALE = 8;
 const isTyping = (e: KeyboardEvent) => e.target instanceof HTMLElement && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
 
@@ -76,6 +75,19 @@ export function BoardStage() {
     return () => void (stageHandle.current = null);
   }, []);
 
+  /** Zoom mínimo: el mapa encajado a todo el alto. Desde ahí solo se puede acercar. */
+  const minScale = useMemo(() => (size.w > 0 ? fitView(proj, size.w, size.h).scale : 0.2), [proj, size]);
+  /** Mantiene el mapa dentro del lienzo: si cabe, centrado; si no, sin dejar ver más allá de sus bordes. */
+  const clampView = useCallback(
+    (v: View): View => {
+      const scale = Math.min(MAX_SCALE, Math.max(minScale, v.scale));
+      const w = proj.w * scale;
+      const h = proj.h * scale;
+      const axis = (pos: number, content: number, room: number) => (content <= room ? (room - content) / 2 : Math.min(0, Math.max(room - content, pos)));
+      return { scale, x: axis(v.x, w, size.w), y: axis(v.y, h, size.h) };
+    },
+    [minScale, proj, size],
+  );
   const fit = useCallback(() => {
     fitted.current = true;
     setView(fitView(proj, size.w, size.h));
@@ -86,13 +98,17 @@ export function BoardStage() {
   }, [size, proj]);
 
   const zoomAt = useCallback((point: Vec2, factor: number) => {
-    fitted.current = false;
     setView((v) => {
-      const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, v.scale * factor));
+      const scale = Math.min(MAX_SCALE, Math.max(minScale, v.scale * factor));
+      fitted.current = scale <= minScale + 1e-6;
       const k = scale / v.scale;
-      return { scale, x: point.x - (point.x - v.x) * k, y: point.y - (point.y - v.y) * k };
+      return clampView({ scale, x: point.x - (point.x - v.x) * k, y: point.y - (point.y - v.y) * k });
     });
-  }, []);
+  }, [minScale, clampView]);
+
+  // El listener de arrastre se registra una vez: lee el encuadre vigente por referencia.
+  const clampRef = useRef(clampView);
+  clampRef.current = clampView;
 
   const finishDraft = useCallback(() => {
     const { draft, select, setDraft, setTool } = useEditorStore.getState();
@@ -199,7 +215,7 @@ export function BoardStage() {
       fitted.current = false;
       p.x = e.clientX;
       p.y = e.clientY;
-      setView((v) => ({ ...v, x: v.x + dx, y: v.y + dy }));
+      setView((v) => clampRef.current({ ...v, x: v.x + dx, y: v.y + dy }));
     };
     // El clic que sigue al mouseup todavía necesita saber si hubo arrastre.
     const up = () => setTimeout(() => (pan.current = null));
@@ -231,7 +247,7 @@ export function BoardStage() {
         const dx = t[0].clientX - pan.current.x;
         const dy = t[0].clientY - pan.current.y;
         pan.current = { x: t[0].clientX, y: t[0].clientY, moved: true };
-        setView((v) => ({ ...v, x: v.x + dx, y: v.y + dy }));
+        setView((v) => clampView({ ...v, x: v.x + dx, y: v.y + dy }));
       } else if (p && !editing) controller.move(p);
       return;
     }
@@ -243,7 +259,7 @@ export function BoardStage() {
     const last = pinch.current;
     if (last) {
       zoomAt({ x: cx, y: cy }, dist / last.dist);
-      setView((v) => ({ ...v, x: v.x + cx - last.cx, y: v.y + cy - last.cy }));
+      setView((v) => clampView({ ...v, x: v.x + cx - last.cx, y: v.y + cy - last.cy }));
     }
     pinch.current = { dist, cx, cy };
   };

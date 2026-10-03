@@ -84,12 +84,13 @@ export const MapShapes = memo(function MapShapes({ map, proj, onPick }: Props) {
           // La primera franja entra en el mapa; las siguientes quedan afuera.
           const offset = -r * 0.55 + layer * 46 + rand() * 16;
           const puff = { x: x0 + (x1 - x0) * t + nx * offset + (rand() - 0.5) * 24, y: y0 + (y1 - y0) * t + ny * offset + (rand() - 0.5) * 24, r };
-          const reach = puff.r + 18;
+          // Radio de la nube más su borde difuso (sombra de 22 px).
+          const reach = puff.r + 26;
           const covers =
             [0, 1, 2, 3, 4, 5, 6, 7].some((q) => isWalkable(proj.toNorm({ x: puff.x + Math.cos((q * Math.PI) / 4) * reach, y: puff.y + Math.sin((q * Math.PI) / 4) * reach }), g)) ||
             isWalkable(proj.toNorm(puff), g) ||
             markerWorld.some((m) => Math.hypot(m.x - puff.x, m.y - puff.y) < reach + 22);
-          if (!covers || layer > 0) out.push(puff);
+          if (!covers) out.push(puff);
         }
       }
     }
