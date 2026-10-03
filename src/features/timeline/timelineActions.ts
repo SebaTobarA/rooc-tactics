@@ -41,6 +41,10 @@ export function patchStep(index: number, patch: Partial<Pick<Step, 'name' | 'not
   store().set((s) => ({ ...s, steps: s.steps.map((step, i) => (i === index ? { ...step, ...patch } : step)) }));
 }
 
+export function patchStepFlags(index: number, patch: Partial<Pick<Step, 'fiestaTempo'>>): void {
+  store().set((s) => ({ ...s, steps: s.steps.map((step, i) => (i === index ? { ...step, ...patch } : step)) }));
+}
+
 export function goToStep(index: number): void {
   stopPlayback();
   useUiStore.getState().setSelection([]);

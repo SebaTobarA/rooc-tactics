@@ -5,6 +5,7 @@ import { jobById } from '../../../config/jobs.ts';
 import { roleById } from '../../../config/roles.ts';
 import { tierRank } from '../../../config/modes/index.ts';
 import { resolvedStats, useScoringStore } from '../../../store/scoringStore.ts';
+import { useStrategyStore } from '../../../store/strategyStore.ts';
 import { zoneCenters, zoneOf, ZONE_KEYS } from '../../../lib/numpad.ts';
 import { partyOfToken } from '../../party/partyActions.ts';
 import type { Projection3 } from '../../../lib/projection.ts';
@@ -89,7 +90,9 @@ function Pillar({ marker, objective, modeId, x, z }: { marker: Marker; objective
 
 export const Markers3D = memo(function Markers3D({ map, proj, objectives, labelHeight = 1.2 }: { map: MapConfig; proj: Projection3; objectives: ObjectiveState[]; labelHeight?: number }) {
   const overrides = useScoringStore((s) => s.overrides);
-  const { stats } = resolvedStats(map.modeId, overrides);
+  const field = useStrategyStore((s) => s.strategy.field) ?? 'main';
+  const { stats } = resolvedStats(map.modeId, overrides, field);
+  const unitShort = field === 'sub' ? 'moral' : 'pts';
   return (
     <group>
       {map.markers.map((m) => {
@@ -97,7 +100,7 @@ export const Markers3D = memo(function Markers3D({ map, proj, objectives, labelH
         const tier = objectives.find((o) => o.markerId === m.id)?.tier ?? m.tier;
         const value = stats.find((s) => s.id === tier)?.pillarTotal;
         const pillar = m.kind === 'central-pillar' || m.kind === 'pillar-slot';
-        const label = <Label text={`${m.label}${m.confirmed || pillar ? '' : ' (?)'} · Z${zoneOf(m.pos, map.numpad)}${pillar && value != null ? ` · ${value} pts` : ''}`} position={[x, 0.3, z + 3]} height={labelHeight} />;
+        const label = <Label text={`${m.label}${m.confirmed || pillar ? '' : ' (?)'} · Z${zoneOf(m.pos, map.numpad)}${pillar && value != null ? ` · ${value} ${unitShort}` : ''}`} position={[x, 0.3, z + 3]} height={labelHeight} />;
         if (m.kind === 'central-pillar' || m.kind === 'pillar-slot') {
           return <group key={m.id}><Pillar marker={m} objective={objectives.find((o) => o.markerId === m.id)} modeId={map.modeId} x={x} z={z} />{label}</group>;
         }

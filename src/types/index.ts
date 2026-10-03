@@ -18,6 +18,45 @@ export interface TierScoring {
   maxTicks: number | null;
 }
 
+/** Guild League se juega en dos campos: el Principal da puntos de victoria; el Secundario da moral. */
+export type FieldId = 'main' | 'sub';
+
+export interface CommanderSkill {
+  id: string;
+  name: string;
+  radiusMeters: number;
+  effect: string;
+}
+
+/** Reglas de puntuación de un campo, ya en forma común para el simulador, el tablero y el asistente. */
+export interface FieldScoring {
+  field: FieldId;
+  label: string;
+  /** Lo que se acumula: "puntos" o "moral". */
+  unit: string;
+  /** Meta que gana la partida; null si el campo no gana (el Secundario). */
+  goal: number | null;
+  /** Umbrales con recompensa (moral del Secundario). */
+  thresholds?: { at: number; reward: string }[];
+  /** Valor de una kill; null = sin confirmar. */
+  killPoints: number | null;
+  tiers: TierScoring[];
+  captureTickSeconds: number | null;
+  pendingRules?: string[];
+  /** Habilidades de Comandante que se ganan al romper el sello de un pilar de este tier. */
+  commander?: { trigger: TierId; target: FieldId; skills: CommanderSkill[] };
+}
+
+/** Evento de los últimos minutos: multiplica lo ganado por captura. */
+export interface FiestaTempo {
+  triggerSecondsLeft: number;
+  captureMultiplier: number;
+  sealMultiplier: number;
+  /** Campos donde está confirmado. */
+  appliesTo: FieldId[];
+  pendingRules: string[];
+}
+
 export interface ModeScoring {
   winScore: number;
   killPoints: number;
@@ -26,6 +65,11 @@ export interface ModeScoring {
   captureTickSeconds: number | null;
   /** Mecánicas sin confirmar: se muestran como pendientes en la interfaz y no se usan en los cálculos. */
   pendingRules?: string[];
+  /** Campo Secundario (moral). Los campos de arriba son los del Campo Principal. */
+  sub?: Omit<FieldScoring, 'field'>;
+  fiestaTempo?: FiestaTempo;
+  /** Duración de la partida en segundos; null = sin confirmar. */
+  matchDurationSeconds?: number | null;
 }
 
 export interface ModeConfig {
@@ -201,6 +245,8 @@ export interface Step {
   tokens: Token[];
   drawings: Drawing[];
   objectives: ObjectiveState[];
+  /** Fiesta Tempo activa en este paso (duplica la captura donde aplica). */
+  fiestaTempo?: boolean;
 }
 
 export interface Player {
@@ -234,6 +280,8 @@ export interface Strategy {
   name: string;
   modeId: string;
   mapId: string;
+  /** Campo en el que se concentra la estrategia; sin definir hasta que se elige. */
+  field?: FieldId;
   /** "Invertir lados": solo rota la vista 180°, no cambia los datos. */
   flipped: boolean;
   /** Lado de mi guild: los tokens aliados usan su color y los enemigos el del otro lado. */

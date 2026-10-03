@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { guildLeague } from '../../config/modes/guild-league.ts';
+import { fieldScoring } from '../../config/modes/index.ts';
 import type { Step } from '../../types/index.ts';
 import { guildScore, onePassMax, pillarsNeeded, tierStats, tierValues, timelineScore } from './scoring.ts';
 
-const scoring = guildLeague.scoring!;
+const scoring = fieldScoring('guild-league', 'main')!;
+const sub = fieldScoring('guild-league', 'sub')!;
+const subStats = tierValues(sub).map((t) => tierStats(t, sub.captureTickSeconds ?? 0));
+const subBy = (id: string) => subStats.find((s) => s.id === id)!;
 const stats = tierValues(scoring).map((t) => tierStats(t, scoring.captureTickSeconds ?? 0));
 const by = (id: string) => stats.find((s) => s.id === id)!;
 
@@ -57,5 +60,29 @@ describe('línea de tiempo', () => {
     const tierOf = (id: string) => (id === 'c' ? 'S' : 'A');
     expect(timelineScore(steps, 3, tierOf, stats)).toEqual({ green: { seals: 50, capture: 180 }, red: { seals: 30, capture: 60 } });
     expect(timelineScore(steps, 1, tierOf, stats).green).toEqual({ seals: 50, capture: 180 });
+  });
+});
+
+describe('Campo Secundario (moral)', () => {
+  it('totales por pilar', () => {
+    expect([subBy('B').pillarTotal, subBy('A').pillarTotal, subBy('S').pillarTotal]).toEqual([130, 190, 290]);
+  });
+
+  it('umbrales de moral con pilares S completos', () => {
+    expect(4 * subBy('S').pillarTotal).toBe(1160);
+    expect(11 * subBy('S').pillarTotal).toBe(3190);
+    expect(pillarsNeeded(subBy('S'), 1000, 0)).toBe(4);
+    expect(pillarsNeeded(subBy('S'), 3000, 0)).toBe(11);
+  });
+
+  it('sin meta de victoria: se mide contra el último umbral y las kills no suman mientras no se confirmen', () => {
+    const r = guildScore(subStats, { S: { seals: 1, captured: 1, ticks: 30, holding: 0 } }, 50, sub);
+    expect(r.total).toBe(290);
+    expect(r.remaining).toBe(3000 - 290);
+  });
+
+  it('Fiesta Tempo duplica la captura, no el sello', () => {
+    const r = guildScore(subStats, { B: { seals: 1, captured: 1, ticks: 20, holding: 0 } }, 0, sub, { seal: 1, capture: 2 });
+    expect([r.seals, r.capture]).toEqual([30, 200]);
   });
 });

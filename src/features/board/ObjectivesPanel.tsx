@@ -1,4 +1,4 @@
-import { modeById } from '../../config/modes/index.ts';
+import { FIELD_LABELS, fieldScoring, modeById } from '../../config/modes/index.ts';
 import { newId } from '../../lib/id.ts';
 import { zoneOf } from '../../lib/numpad.ts';
 import { snapToWalkable } from '../../lib/walk.ts';
@@ -20,11 +20,15 @@ export function ObjectivesPanel() {
   const { map, update, checkpoint, dirty } = useMapStore();
   const step = useCurrentStep();
   const modeId = useStrategyStore((s) => s.strategy.modeId);
-  const { overrides, setOverrides } = useScoringStore();
   const scoring = modeById(modeId)?.scoring;
   const admin = useIsAdmin();
-  const points = tierPoints(modeId, overrides);
-  const { stats } = resolvedStats(modeId, overrides);
+  const field = useStrategyStore((s) => s.strategy.field) ?? 'main';
+  const fs = fieldScoring(modeId, field);
+  // El borrador del superadministrador solo existe para el Campo Principal.
+  const editable = admin && field === 'main';
+  const { overrides, setOverrides } = useScoringStore();
+  const points = tierPoints(modeId, overrides, field);
+  const { stats } = resolvedStats(modeId, overrides, field);
   const pillars = map.markers.filter((m) => m.kind === 'central-pillar' || m.kind === 'pillar-slot');
   const editMap = (fn: Parameters<typeof update>[0]) => {
     checkpoint();
@@ -55,17 +59,17 @@ export function ObjectivesPanel() {
   return (
     <div className="space-y-3 p-3">
       <section className="rounded-lg border border-slate-200 p-2 dark:border-slate-800">
-        <h3 className={heading}>Puntos por tier</h3>
+        <h3 className={heading}>{fs?.unit === 'moral' ? 'Moral' : 'Puntos'} por tier · {FIELD_LABELS[field]}</h3>
         <table className="mt-1 w-full text-xs">
           <thead>
             <tr className="text-slate-500"><th className="text-left font-normal">Tier</th><th className="font-normal">Sello</th><th className="font-normal">Pts/tick</th><th className="font-normal">Máx. ticks</th><th className="text-right font-normal">Total</th></tr>
           </thead>
           <tbody>
-            {(scoring?.tiers ?? []).map((t) => {
+            {(fs?.tiers ?? []).map((t) => {
               const cur = points.tiers.find((x) => x.id === t.id);
               const total = stats.find((x) => x.id === t.id)?.pillarTotal;
               const cell = (field: 'destroy' | 'capture' | 'maxTicks', value: number | null | undefined, published: number | null, label: string) =>
-                admin ? (
+                editable ? (
                   <input type="number" min={0} className={`${input} px-1 py-0.5 text-right text-xs`} aria-label={`${label} tier ${t.id}`} placeholder="sin dato"
                     value={overrides[field]?.[t.id] ?? published ?? ''} onChange={(e) => setOverrides({ ...overrides, [field]: { ...overrides[field], [t.id]: num(e.target.value) } })} />
                 ) : (
@@ -84,15 +88,15 @@ export function ObjectivesPanel() {
             <tr>
               <td colSpan={3} className="text-slate-500">Segundos por tick</td>
               <td className="p-0.5">
-                {!admin ? <span className="block text-right">{points.tickSeconds ?? 'sin dato'}</span> : (
+                {!editable ? <span className="block text-right">{points.tickSeconds ?? 'sin dato'}</span> : (
                   <input type="number" min={0} className={`${input} px-1 py-0.5 text-right text-xs`} aria-label="Segundos por tick de captura" placeholder="sin dato"
-                    value={overrides.tickSeconds ?? scoring?.captureTickSeconds ?? ''} onChange={(e) => setOverrides({ ...overrides, tickSeconds: num(e.target.value) })} />
+                    value={overrides.tickSeconds ?? fs?.captureTickSeconds ?? ''} onChange={(e) => setOverrides({ ...overrides, tickSeconds: num(e.target.value) })} />
                 )}
               </td>
             </tr>
           </tbody>
         </table>
-        <p className="mt-1 text-xs text-slate-500">{admin ? 'Tus cambios son un borrador hasta que pulses «Publicar para todos».' : 'Los usan el simulador de puntos y el asistente IA. Los carga el superadministrador.'}</p>
+        <p className="mt-1 text-xs text-slate-500">{editable ? 'Tus cambios son un borrador hasta que pulses «Publicar para todos».' : admin ? 'Los valores del Campo Secundario están en la configuración del modo; pídeme cambiarlos.' : 'Los usan el simulador y el asistente IA.'}</p>
       </section>
 
       <section className="space-y-2">
@@ -154,7 +158,7 @@ export function ObjectivesPanel() {
                 </label>
               )}
               <p className="mt-1 text-xs text-slate-500">
-                {!st ? (admin ? 'Define el tier para ver sus puntos.' : 'Tier sin definir.') : `Vale ${st.pillarTotal}: sello ${st.seal} + captura ${st.perTick} × ${st.maxTicks} ticks (${st.captureSeconds} s)`}
+                {!st ? (admin ? 'Define el tier para ver sus puntos.' : 'Tier sin definir.') : `Vale ${st.pillarTotal} ${fs?.unit ?? 'puntos'}: sello ${st.seal} + captura ${st.perTick} × ${st.maxTicks} ticks (${st.captureSeconds} s)`}
               </p>
             </div>
           );

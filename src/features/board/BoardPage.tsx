@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { maps } from '../../config/maps/index.ts';
-import { modeById } from '../../config/modes/index.ts';
+import { FIELD_LABELS, fieldScoring, hasFields, modeById } from '../../config/modes/index.ts';
+import { FieldChooser } from './FieldChooser.tsx';
 import { repository } from '../../data/StrategyRepository.ts';
 import { useIsAdmin } from '../../store/adminStore.ts';
 import { useEditorStore } from '../../store/editorStore.ts';
@@ -51,6 +52,9 @@ export function BoardPage({ mapId }: { mapId: string }) {
   }, [admin, editorActive, setEditorActive]);
   const [shareOpen, setShareOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  const [fieldOpen, setFieldOpen] = useState(false);
+  // En Guild League, una estrategia sin campo elegido pregunta en cuál se concentra.
+  const mustChooseField = hasFields(strategy.modeId) && !strategy.field && strategy.mapId === mapId;
   useBoardShortcuts();
 
   useEffect(() => {
@@ -73,6 +77,11 @@ export function BoardPage({ mapId }: { mapId: string }) {
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-3 py-2 dark:border-slate-800">
         <span className="text-sm text-slate-500 dark:text-slate-400">{modeById(map.modeId)?.name} › {map.name}</span>
+        {hasFields(map.modeId) && (
+          <button className={`${button} border-sky-500 font-medium`} onClick={() => setFieldOpen(true)} title="Cambia el campo en que se concentra la estrategia">
+            {strategy.field ? `${FIELD_LABELS[strategy.field]} · ${fieldScoring(map.modeId, strategy.field)?.goal != null ? `meta ${fieldScoring(map.modeId, strategy.field)!.goal} puntos` : 'moral'}` : 'Elegir campo'}
+          </button>
+        )}
         <input
           className="mr-auto w-56 rounded border border-transparent bg-transparent px-2 py-1 font-semibold hover:border-slate-300 focus:border-sky-500 focus:outline-none dark:hover:border-slate-700"
           value={strategy.name}
@@ -120,6 +129,7 @@ export function BoardPage({ mapId }: { mapId: string }) {
       <HelpDialog />
       {shareOpen && <ShareDialog onClose={() => setShareOpen(false)} />}
       {aiOpen && <AiDialog onClose={() => setAiOpen(false)} />}
+      {(fieldOpen || mustChooseField) && <FieldChooser onClose={() => setFieldOpen(false)} />}
     </div>
   );
 }

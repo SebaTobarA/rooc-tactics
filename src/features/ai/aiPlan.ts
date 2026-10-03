@@ -1,5 +1,5 @@
 import { jobById, jobs } from '../../config/jobs.ts';
-import { modeById } from '../../config/modes/index.ts';
+import { FIELD_LABELS, fieldScoring, modeById } from '../../config/modes/index.ts';
 import { roles } from '../../config/roles.ts';
 import { clamp01, round4 } from '../../lib/geometry.ts';
 import { newId } from '../../lib/id.ts';
@@ -31,6 +31,7 @@ interface AiPlan {
     zones?: { at: Place; radius?: number; color?: string }[];
     pings?: { at: Place; color?: string }[];
     objectives?: { marker: string; status?: ObjectiveStatus; tier?: string; timerSeconds?: number; ticks?: number }[];
+    fiestaTempo?: boolean;
   }[];
 }
 
@@ -63,9 +64,25 @@ export function buildPrompt(request: string, strategy: Strategy, map: MapConfig)
   const markers = map.markers
     .map((m) => `- "${m.id}": ${m.label}${m.tier ? ` (tier ${m.tier})` : ''}${m.side ? ` (guild ${m.side === 'green' ? 'Verde' : 'Roja'})` : ''}${m.confirmed ? '' : ' [función por confirmar]'} — zona ${zoneOf(m.pos, map.numpad)}, x ${m.pos.x.toFixed(2)}, y ${m.pos.y.toFixed(2)}`)
     .join('\n');
-  const points = tierPoints(strategy.modeId, useScoringStore.getState().overrides);
-  const tiers = points.tiers.map((t) => `${t.id}: romper el sello ${t.destroy ?? 'sin dato'}, captura ${t.capturePerTick ?? 'sin dato'} por tick hasta ${t.maxTicks ?? '?'} ticks`).join('; ') + (points.tickSeconds ? ` (un tick cada ${points.tickSeconds} s)` : '');
-  const pending = mode?.scoring?.pendingRules?.length ? `\n- Sin confirmar (no lo des por hecho): ${mode.scoring.pendingRules.join(' ')}` : '';
+  // Las reglas y el objetivo dependen del campo en que se concentra la estrategia.
+  const field = strategy.field ?? 'main';
+  const fs = fieldScoring(strategy.modeId, field);
+  const unit = fs?.unit ?? 'puntos';
+  const points = tierPoints(strategy.modeId, useScoringStore.getState().overrides, field);
+  const tiers = points.tiers.map((t) => `${t.id}: romper el sello ${t.destroy ?? 'sin dato'}, captura ${t.capturePerTick ?? 'sin dato'} por tick hasta ${t.maxTicks ?? '?'} ticks (total ${(t.destroy ?? 0) + (t.capturePerTick ?? 0) * (t.maxTicks ?? 0)})`).join('; ') + (points.tickSeconds ? `; un tick cada ${points.tickSeconds} s` : '');
+  const fiesta = scoring?.fiestaTempo;
+  const pendingList = [...(fs?.pendingRules ?? []), ...(fiesta?.pendingRules.map((r) => `Fiesta Tempo: ${r}`) ?? [])];
+  const pending = pendingList.length ? `\n- Sin confirmar (no lo des por hecho): ${pendingList.join(' ')}` : '';
+  const otherField = field === 'main' ? 'sub' : 'main';
+  const fieldRules =
+    fs?.goal != null
+      ? `- Esta estrategia es para el ${FIELD_LABELS[field]}: aquí se gana la partida. Gana la primera guild que llega a ${fs.goal} ${unit}. Cada kill vale ${fs.killPoints ?? '?'} ${unit}.
+- Optimiza para llegar a ${fs.goal} antes que el rival: prioriza pilares por valor y por cercanía, y considera las kills.${scoring?.sub ? `\n- En paralelo se juega el ${FIELD_LABELS[otherField]}, que da moral: en ${(scoring.sub.thresholds ?? []).map((t) => t.at).join(' / ')} entrega mejoras a este campo, y romper su sello ${scoring.sub.commander?.trigger ?? 'S'} da Habilidad de Comandante para este campo.` : ''}`
+      : `- Esta estrategia es para el ${FIELD_LABELS[field]}: NO gana la partida. Acumula ${unit}. Umbrales: ${(fs?.thresholds ?? []).map((t) => `${t.at} = ${t.reward}`).join('; ')}. La ${unit} puede pasar de ${(fs?.thresholds ?? []).at(-1)?.at ?? '?'}.
+- Optimiza para alcanzar los umbrales lo antes posible y para romper el sello ${fs?.commander?.trigger ?? 'S'}, que entrega Habilidad de Comandante al ${FIELD_LABELS[fs?.commander?.target ?? 'main']}: ${(fs?.commander?.skills ?? []).map((k) => `${k.name} (${k.radiusMeters} m, ${k.effect})`).join('; ')}.
+- Las kills ${fs?.killPoints != null ? `valen ${fs.killPoints} de ${unit}` : 'no está confirmado que den moral: no cuentes con ellas'}.
+- La victoria se decide en el ${FIELD_LABELS[otherField]} (${scoring?.winScore ?? '?'} puntos); reparte gente pensando en no dejarlo débil.`;
+  const fiestaRule = fiesta ? `\n- Fiesta Tempo: en los últimos ${Math.round(fiesta.triggerSecondsLeft / 60)} minutos, si nadie llegó a la meta, lo ganado por captura se multiplica por ${fiesta.captureMultiplier}. Confirmado en: ${fiesta.appliesTo.map((f) => FIELD_LABELS[f]).join(', ')}. Puedes marcar un paso con "fiestaTempo": true.` : '';
   const player = (id: string | null) => {
     const p = strategy.roster.find((x) => x.id === id);
     return p ? `${p.name} (${jobById(p.jobId)?.name ?? '?'})` : null;
@@ -79,15 +96,15 @@ export function buildPrompt(request: string, strategy: Strategy, map: MapConfig)
     .join('\n');
   const raids = strategy.raids.length ? strategy.raids.map((r) => `- Raid ${r.number} "${r.name}": partys ${r.partyIds.map((id) => strategy.parties.find((p) => p.id === id)?.number).join(', ') || 'ninguna'}`).join('\n') : 'No hay raids definidas todavía.';
 
-  return `Eres el estratega asistente de una guild de Ragnarok Origin Classic (ROOC). Ayúdame a planificar una partida de ${mode?.name ?? 'GvG'} en el mapa ${map.name} usando el planificador web ROOC Tactics.
+  return `Eres el estratega asistente de una guild de Ragnarok Origin Classic (ROOC). Ayúdame a planificar una partida de ${mode?.name ?? 'GvG'} en el mapa ${map.name}${scoring?.sub ? `, ${FIELD_LABELS[field]}` : ''}, usando el planificador web ROOC Tactics.
 
 ## Lo que quiero
 ${request.trim() || '(Propón una estrategia de apertura razonable y pregúntame lo que necesites.)'}
 
-## Reglas del modo
-- Gana la primera guild que llega a ${scoring?.winScore ?? '?'} puntos. Cada kill vale ${scoring?.killPoints ?? '?'} punto.
-- Los pilares aparecen durante la partida y tienen tier. Su sello se rompe con daño puro; al romperlo queda una zona de captura que suma puntos por tick a la guild con más jugadores dentro, hasta un máximo de ticks; luego el pilar se agota.
-- Puntos por tier: ${tiers ?? 'sin datos'}. Si un valor dice "sin dato", no lo inventes.${pending}
+## Campo y reglas
+${fieldRules}
+- Los pilares aparecen durante la partida y tienen tier. Su sello se rompe con daño puro; al romperlo queda una zona de captura que suma ${unit} por tick a la guild con más jugadores dentro, hasta un máximo de ticks; luego el pilar se agota.
+- ${unit[0].toUpperCase() + unit.slice(1)} por tier en este campo: ${tiers || 'sin datos'}. Si un valor dice "sin dato", no lo inventes.${fiestaRule}${pending}
 - Una party tiene máximo ${mode?.partySize ?? 5} jugadores; una raid, máximo ${mode?.raidMaxParties ?? 8} partys.
 
 ## Mapa
@@ -228,6 +245,7 @@ export function applyPlan(plan: AiPlan, base: Strategy, map: MapConfig, replace:
     const where = `Paso ${i + 1}`;
     const step = emptyStep(typeof s.name === 'string' && s.name ? s.name : `Paso ${i + 1}`);
     step.note = typeof s.note === 'string' ? s.note : '';
+    if (s.fiestaTempo === true) step.fiestaTempo = true;
 
     const placed: { key: string; group: NonNullable<Token['group']>; pos: Vec2 }[] = [];
     for (const g of s.groups ?? []) {

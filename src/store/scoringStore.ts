@@ -1,9 +1,12 @@
 import { create } from 'zustand';
-import { modeById } from '../config/modes/index.ts';
+import { fieldScoring } from '../config/modes/index.ts';
 import { tierStats, tierValues, type TierStats } from '../features/score/scoring.ts';
-import type { TierId } from '../types/index.ts';
+import type { FieldId, TierId } from '../types/index.ts';
 
-/** Borrador de puntos por tier escrito por el superadministrador. Manda sobre lo publicado hasta que se publique. */
+/**
+ * Borrador de puntos por tier del Campo Principal escrito por el superadministrador.
+ * Manda sobre lo publicado hasta que se publique. Los valores del Secundario salen solo de la config.
+ */
 export interface Overrides {
   destroy: Record<TierId, number | null>;
   capture: Record<TierId, number | null>;
@@ -44,26 +47,27 @@ export interface TierPoints {
   provisional: boolean;
 }
 
-/** Puntos por tier ya resueltos: lo publicado, o el borrador del superadministrador si lo hay. */
-export function tierPoints(modeId: string, overrides: Overrides): { tiers: TierPoints[]; tickSeconds: number | null } {
-  const scoring = modeById(modeId)?.scoring;
-  const pick = (o: number | null | undefined, c: number | null) => o ?? c;
+/** Valores por tier del campo pedido: lo publicado, o (solo en el Principal) el borrador del superadministrador. */
+export function tierPoints(modeId: string, overrides: Overrides, field: FieldId = 'main'): { tiers: TierPoints[]; tickSeconds: number | null } {
+  const scoring = fieldScoring(modeId, field);
+  const o = scoring?.field === 'main' ? overrides : empty;
+  const pick = (v: number | null | undefined, c: number | null) => v ?? c;
   return {
     tiers: (scoring?.tiers ?? []).map((t) => {
-      const destroy = pick(overrides.destroy[t.id], t.destroyPoints);
-      const capturePerTick = pick(overrides.capture[t.id], t.capturePointsPerTick);
-      const maxTicks = pick(overrides.maxTicks?.[t.id], t.maxTicks);
+      const destroy = pick(o.destroy[t.id], t.destroyPoints);
+      const capturePerTick = pick(o.capture[t.id], t.capturePointsPerTick);
+      const maxTicks = pick(o.maxTicks?.[t.id], t.maxTicks);
       return { id: t.id, destroy, capturePerTick, maxTicks, provisional: destroy !== t.destroyPoints || capturePerTick !== t.capturePointsPerTick || maxTicks !== t.maxTicks };
     }),
-    tickSeconds: overrides.tickSeconds ?? scoring?.captureTickSeconds ?? null,
+    tickSeconds: o.tickSeconds ?? scoring?.captureTickSeconds ?? null,
   };
 }
 
-/** Estadísticas por tier (totales, puntos por segundo, duración) con los valores en uso. */
-export function resolvedStats(modeId: string, overrides: Overrides): { stats: TierStats[]; tickSeconds: number; missing: string[] } {
-  const scoring = modeById(modeId)?.scoring;
+/** Estadísticas por tier (totales, ritmo, duración) del campo pedido, con los valores en uso. */
+export function resolvedStats(modeId: string, overrides: Overrides, field: FieldId = 'main'): { stats: TierStats[]; tickSeconds: number; missing: string[] } {
+  const scoring = fieldScoring(modeId, field);
   if (!scoring) return { stats: [], tickSeconds: 0, missing: [] };
-  const points = tierPoints(modeId, overrides);
+  const points = tierPoints(modeId, overrides, field);
   const missing = points.tiers.flatMap((t) => [t.destroy == null && `sello ${t.id}`, t.capturePerTick == null && `captura ${t.id}`, t.maxTicks == null && `ticks máximos ${t.id}`].filter((x): x is string => !!x));
   if (points.tickSeconds == null) missing.push('segundos por tick');
   const tickSeconds = points.tickSeconds ?? 0;

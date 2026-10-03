@@ -3,6 +3,7 @@ import { Circle, Group, Path, Star, Text } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import { tierRank } from '../../../config/modes/index.ts';
 import { resolvedStats, useScoringStore } from '../../../store/scoringStore.ts';
+import { useStrategyStore } from '../../../store/strategyStore.ts';
 import { zoneOf } from '../../../lib/numpad.ts';
 import type { Projection } from '../../../lib/projection.ts';
 import type { Marker, NumpadGrid, ObjectiveState, ObjectiveStatus, Side, Vec2 } from '../../../types/index.ts';
@@ -97,7 +98,9 @@ interface Props {
 
 export const Markers = memo(function Markers({ markers, proj, grid, modeId, objectives, selectedId, editable, onSelect, onMoveStart, onMove }: Props) {
   const overrides = useScoringStore((s) => s.overrides);
-  const { stats } = resolvedStats(modeId, overrides);
+  const field = useStrategyStore((s) => s.strategy.field) ?? 'main';
+  const { stats } = resolvedStats(modeId, overrides, field);
+  const unitShort = field === 'sub' ? 'moral' : 'pts';
   /** Total de un pilar de ese tier (sello + captura completa). */
   const valueOf = (tier: string | undefined) => stats.find((s) => s.id === tier)?.pillarTotal ?? null;
   return (
@@ -122,7 +125,7 @@ export const Markers = memo(function Markers({ markers, proj, grid, modeId, obje
             {selectedId === m.id && <Circle radius={20} stroke="#38bdf8" strokeWidth={2} dash={[5, 4]} />}
             <MarkerIcon marker={m} objective={objective} modeId={modeId} />
             <Text
-              text={`${m.label}${m.confirmed || pillar ? '' : ' (?)'} · Z${zoneOf(m.pos, grid)}${pillar && valueOf(objective?.tier ?? m.tier) != null ? ` · ${valueOf(objective?.tier ?? m.tier)} pts` : ''}`}
+              text={`${m.label}${m.confirmed || pillar ? '' : ' (?)'} · Z${zoneOf(m.pos, grid)}${pillar && valueOf(objective?.tier ?? m.tier) != null ? ` · ${valueOf(objective?.tier ?? m.tier)} ${unitShort}` : ''}`}
               y={pillar ? pillarRadius(tierRank(modeId, objective?.tier ?? m.tier)) + 4 : 15}
               width={160}
               offsetX={80}

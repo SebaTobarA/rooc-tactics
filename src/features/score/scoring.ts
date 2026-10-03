@@ -1,4 +1,4 @@
-import type { ModeScoring, ObjectiveState, Step, TierId } from '../../types/index.ts';
+import type { FieldScoring, ObjectiveState, Step, TierId } from '../../types/index.ts';
 
 /**
  * Cálculos del sistema de puntos. Todo se deriva de la config del modo (sello, puntos por tick,
@@ -24,7 +24,7 @@ export interface TierStats extends TierValues {
 }
 
 /** Valores en uso por tier; un dato faltante cuenta como 0. */
-export function tierValues(scoring: ModeScoring, override?: (id: TierId) => Partial<Omit<TierValues, 'id'>>): TierValues[] {
+export function tierValues(scoring: Pick<FieldScoring, 'tiers'>, override?: (id: TierId) => Partial<Omit<TierValues, 'id'>>): TierValues[] {
   return scoring.tiers.map((t) => {
     const o = override?.(t.id) ?? {};
     return { id: t.id, seal: o.seal ?? t.destroyPoints ?? 0, perTick: o.perTick ?? t.capturePointsPerTick ?? 0, maxTicks: o.maxTicks ?? t.maxTicks ?? 0 };
@@ -47,9 +47,9 @@ export function onePassMax(stats: TierStats[], pillarTiers: (TierId | undefined)
   return pillarTiers.reduce((sum, tier) => sum + (stats.find((s) => s.id === tier)?.pillarTotal ?? 0), 0);
 }
 
-/** Pilares completos (sello + captura máxima) de un tier que faltan para ganar, dados unos puntos ya logrados. */
-export function pillarsNeeded(stat: TierStats, winScore: number, alreadyHave: number): number | null {
-  const remaining = winScore - alreadyHave;
+/** Pilares completos (sello + captura máxima) de un tier que faltan para llegar a una meta, dados unos puntos ya logrados. */
+export function pillarsNeeded(stat: TierStats, target: number, alreadyHave: number): number | null {
+  const remaining = target - alreadyHave;
   if (remaining <= 0) return 0;
   return stat.pillarTotal > 0 ? Math.ceil(remaining / stat.pillarTotal) : null;
 }
@@ -75,21 +75,31 @@ export interface GuildResult {
   secondsToWin: number | null;
 }
 
-/** Puntos de una guild a partir de lo ingresado por tier. La captura de cada pilar nunca supera su máximo de ticks. */
-export function guildScore(stats: TierStats[], rows: Record<TierId, GuildRow>, kills: number, scoring: ModeScoring): GuildResult {
+/** Multiplicadores de Fiesta Tempo (1 = sin efecto). */
+export interface Multipliers {
+  seal: number;
+  capture: number;
+}
+export const NO_FIESTA: Multipliers = { seal: 1, capture: 1 };
+
+/** Meta para medir el avance: la de victoria, o el último umbral si el campo no gana (moral). */
+export const targetOf = (f: Pick<FieldScoring, 'goal' | 'thresholds'>) => f.goal ?? f.thresholds?.[f.thresholds.length - 1]?.at ?? 0;
+
+/** Puntos (o moral) de una guild a partir de lo ingresado por tier. La captura de cada pilar nunca supera su máximo de ticks. */
+export function guildScore(stats: TierStats[], rows: Record<TierId, GuildRow>, kills: number, field: Pick<FieldScoring, 'goal' | 'thresholds' | 'killPoints'>, fiesta: Multipliers = NO_FIESTA): GuildResult {
   let seals = 0;
   let capture = 0;
   let rate = 0;
   for (const s of stats) {
     const r = rows[s.id];
     if (!r) continue;
-    seals += r.seals * s.seal;
-    capture += r.captured * Math.min(Math.max(0, r.ticks), s.maxTicks) * s.perTick;
-    rate += r.holding * s.pointsPerSecond;
+    seals += r.seals * s.seal * fiesta.seal;
+    capture += r.captured * Math.min(Math.max(0, r.ticks), s.maxTicks) * s.perTick * fiesta.capture;
+    rate += r.holding * s.pointsPerSecond * fiesta.capture;
   }
-  const killPts = kills * scoring.killPoints;
+  const killPts = kills * (field.killPoints ?? 0);
   const total = seals + capture + killPts;
-  const remaining = Math.max(0, scoring.winScore - total);
+  const remaining = Math.max(0, targetOf(field) - total);
   return { seals, capture, kills: killPts, total, remaining, rate, secondsToWin: remaining === 0 ? 0 : rate > 0 ? remaining / rate : null };
 }
 
@@ -100,9 +110,15 @@ const captor = (o: ObjectiveState | undefined): SideId | null => (o?.status === 
  * Puntos acumulados según la línea de tiempo, hasta el paso indicado (incluido).
  * Regla: cuando un pilar pasa a "en captura" por una guild, esa guild suma el sello y la captura
  * (los ticks anotados en el paso, o la captura completa si no se anotaron). Mientras siga en captura
- * por la misma guild en los pasos siguientes no vuelve a sumar.
+ * por la misma guild en los pasos siguientes no vuelve a sumar. Si el paso tiene Fiesta Tempo, se aplican sus multiplicadores.
  */
-export function timelineScore(steps: Step[], upTo: number, tierOf: (markerId: string, o: ObjectiveState) => TierId | undefined, stats: TierStats[]): Record<SideId, { seals: number; capture: number }> {
+export function timelineScore(
+  steps: Step[],
+  upTo: number,
+  tierOf: (markerId: string, o: ObjectiveState) => TierId | undefined,
+  stats: TierStats[],
+  fiestaFor: (step: Step) => Multipliers = () => NO_FIESTA,
+): Record<SideId, { seals: number; capture: number }> {
   const out = { green: { seals: 0, capture: 0 }, red: { seals: 0, capture: 0 } };
   for (let i = 0; i <= upTo && i < steps.length; i++) {
     for (const o of steps[i].objectives) {
@@ -112,8 +128,9 @@ export function timelineScore(steps: Step[], upTo: number, tierOf: (markerId: st
       if (before === side) continue;
       const s = stats.find((x) => x.id === tierOf(o.markerId, o));
       if (!s) continue;
-      out[side].seals += s.seal;
-      out[side].capture += Math.min(o.ticks ?? s.maxTicks, s.maxTicks) * s.perTick;
+      const m = fiestaFor(steps[i]);
+      out[side].seals += s.seal * m.seal;
+      out[side].capture += Math.min(o.ticks ?? s.maxTicks, s.maxTicks) * s.perTick * m.capture;
     }
   }
   return out;
