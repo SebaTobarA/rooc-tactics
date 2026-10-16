@@ -1,7 +1,7 @@
 import type { Element, MarkerKind, Vec2 } from '../../src/types/index.ts';
 
 /**
- * Parámetros de generación de los dos mapas de Vigrid. Las posiciones (px) se tomaron a mano de las capturas
+ * Parámetros de generación del mapa de Vigrid. Las posiciones (px) se tomaron a mano de las capturas
  * de referencia; el script las lleva al minimapa cenital, las normaliza y las acerca al sendero más próximo.
  */
 export interface MarkerSeed {
@@ -113,43 +113,5 @@ export const vigridField: VigridSource = {
       { x: 337, y: 420 }, { x: 530, y: 425 }, { x: 232, y: 562 }, { x: 668, y: 531 },
       { x: 223, y: 727 }, { x: 641, y: 690 }, { x: 347, y: 852 }, { x: 550, y: 834 },
     ].map((p, i) => ({ id: `dracula-${i + 1}`, kind: 'dracula' as const, label: `Dracula ${i + 1}`, at: p, from: 'monsters' as const })),
-  ],
-};
-
-const ENTRIES_FELL: Vec2[] = [
-  { x: 563, y: 430 },
-  { x: 1350, y: 413 },
-  { x: 578, y: 1213 },
-  { x: 1405, y: 1155 },
-];
-
-const NIDHOGG_FELL: Vec2[] = [{ x: 718, y: 738 }, { x: 1085, y: 640 }, { x: 1195, y: 915 }, { x: 820, y: 998 }];
-const TREES_FELL: Vec2[] = [{ x: 655, y: 605 }, { x: 1315, y: 598 }, { x: 1308, y: 940 }, { x: 665, y: 1030 }];
-
-export const vigridFellands: VigridSource = {
-  id: 'vigrid-fellands',
-  minimap: 'assets-src/vigrid-fellands-minimap.webp',
-  crop: { x: 494, y: 332, w: 990, h: 984 },
-  inpaint: [
-    { x: 985, y: 800, r: 42 }, // flecha del jugador
-    { x: 960, y: 870, r: 60 }, // cono de visión
-    // Nidhogg y árboles: sus íconos tapan la orilla de los muros; se rellenan y el marcador va al sendero más cercano.
-    ...NIDHOGG_FELL.map((p) => ({ ...p, r: 24 })),
-    ...TREES_FELL.map((p) => ({ ...p, r: 24 })),
-  ],
-  clear: [
-    { x: 990, y: 800, r: 40 }, // entrega central
-    ...ENTRIES_FELL.map((p) => ({ ...p, r: 28 })),
-  ],
-  obstacleHeight: 2.6,
-  plazas: [
-    { id: 'center', kind: 'center', at: { x: 990, y: 800 }, r: 50 },
-    ...ENTRIES_FELL.map((p, i) => ({ id: `entry-${i + 1}`, kind: 'respawn' as const, at: p, r: 32 })),
-  ],
-  markers: [
-    { id: 'submit-center', kind: 'fruit-submit', label: 'Entrega de frutas (centro)', at: { x: 990, y: 800 } },
-    ...ENTRIES_FELL.map((p, i) => ({ id: `entry-${i + 1}`, kind: 'entry' as const, label: `Entrada ${['NO', 'NE', 'SO', 'SE'][i]} + entrega`, at: p })),
-    ...NIDHOGG_FELL.map((p, i) => ({ id: `nidhogg-${i + 1}`, kind: 'nidhogg' as const, label: `Nidhogg ${i + 1}`, at: p })),
-    ...TREES_FELL.map((p, i) => ({ id: `tree-${i + 1}`, kind: 'fruit-tree' as const, label: `Árbol ${i + 1}`, at: p, confirmed: false })),
   ],
 };

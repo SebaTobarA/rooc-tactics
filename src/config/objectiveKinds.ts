@@ -33,9 +33,6 @@ export const KIND_LOOKS: Partial<Record<MarkerKind, KindLook>> = {
     statuses: { active: 'Activo', destroyed: 'Corrompido' },
   },
   dracula: { label: 'Undead Spirit (Dracula)', icon: '🧛', color: '#b0306b', statuses: BOSS },
-  'fruit-submit': { label: 'Entrega de frutas', icon: '🐿', color: '#f59e0b' },
-  nidhogg: { label: 'Nidhogg', icon: '🐉', color: '#b91c1c', statuses: BOSS },
-  'fruit-tree': { label: 'Árbol', icon: '🌳', color: '#15803d' },
 };
 
 export const ELEMENT_LOOKS: Record<Element, { name: string; icon: string; color: string; buff: string }> = {

@@ -27,9 +27,6 @@ export const MARKER_LABELS: Record<MarkerKind, string> = {
   'element-lord': 'Señor Elemental',
   altar: 'Altar',
   dracula: 'Dracula (Undead Spirit)',
-  'fruit-submit': 'Entrega de frutas',
-  nidhogg: 'Nidhogg',
-  'fruit-tree': 'Árbol',
 };
 
 const LIST_FOR_KIND: Record<PolygonKind, Exclude<PolyList, 'bounds'>> = {

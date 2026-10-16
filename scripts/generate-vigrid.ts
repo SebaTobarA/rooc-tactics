@@ -1,5 +1,5 @@
 /**
- * Genera la geometría propia de los mapas de Vigrid (Vigrid Field y Ruinscape/Fellands) desde sus minimapas cenitales.
+ * Genera la geometría propia del mapa de Vigrid desde su minimapa cenital.
  *   npm run generate:vigrid
  * Arena = transitable; gris = cresta de roca o muro. Salidas:
  *   src/config/maps/<id>.geo.json, src/config/maps/<id>.markers.json
@@ -9,19 +9,19 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import sharp from 'sharp';
 import type { MapGeometry, Marker, Plaza, Polygon, Vec2 } from '../src/types/index.ts';
-import { vigridFellandsStyle, vigridFieldStyle } from '../src/config/maps/vigrid.style.ts';
+import { vigridFieldStyle } from '../src/config/maps/vigrid.style.ts';
 import { fitAxisTransform } from './lib/align.ts';
 import { maskToShapes } from './lib/contours.ts';
 import { geometryToSvg } from './lib/preview.ts';
 import { blur, loadRgb, maskFrom, nearestFill, UNKNOWN, type Mask } from './lib/raster.ts';
-import { vigridFellands, vigridField, type VigridSource } from './maps/vigrid.source.ts';
+import { vigridField, type VigridSource } from './maps/vigrid.source.ts';
 
 const VOID = 0;
 const ROCK = 1;
 const SAND = 2;
 const W = 1000;
 
-for (const source of [vigridField, vigridFellands]) await generate(source);
+await generate(vigridField);
 
 async function generate(source: VigridSource) {
   const img = await loadRgb(source.minimap);
@@ -145,7 +145,7 @@ async function generate(source: VigridSource) {
 
   // 4. Vistas previas para revisar.
   mkdirSync('scripts/out', { recursive: true });
-  const style = source.id === 'vigrid' ? vigridFieldStyle : vigridFellandsStyle;
+  const style = vigridFieldStyle;
   const dots = markers.map((m) => `<circle cx="${m.pos.x * W}" cy="${m.pos.y * H}" r="7" fill="#ff2b2b" stroke="#fff" stroke-width="2"/><text x="${m.pos.x * W + 9}" y="${m.pos.y * H + 4}" font-size="13" fill="#000">${m.id}</text>`).join('');
   const overlay = geometryToSvg(geometry, style, W, H, { overlay: true }).replace('</svg>', `${dots}</svg>`);
   await sharp(source.minimap).extract({ left: crop.x, top: crop.y, width: crop.w, height: crop.h }).resize(W, H).composite([{ input: Buffer.from(overlay) }]).png().toFile(`scripts/out/${source.id}-preview.png`);

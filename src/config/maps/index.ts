@@ -1,6 +1,6 @@
 import type { MapConfig } from '../../types/index.ts';
 import { valeOfClash } from './vale-of-clash.ts';
-import { vigridFellands, vigridField } from './vigrid.ts';
+import { vigridField } from './vigrid.ts';
 
 export interface MapSummary {
   id: string;
@@ -12,7 +12,6 @@ export interface MapSummary {
 export const maps: Record<string, MapConfig> = {
   [valeOfClash.id]: valeOfClash,
   [vigridField.id]: vigridField,
-  [vigridFellands.id]: vigridFellands,
 };
 
 /** Catálogo para el selector, incluidos los mapas "Próximamente". */

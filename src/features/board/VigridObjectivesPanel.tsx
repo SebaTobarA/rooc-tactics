@@ -13,7 +13,7 @@ import { patchStepFlags } from '../timeline/timelineActions.ts';
 import { button, heading, input } from './ui.ts';
 
 /** Orden en que se listan los objetivos. */
-const ORDER: MarkerKind[] = ['horn', 'fenrir', 'element-lord', 'altar', 'dracula', 'nidhogg', 'fruit-submit', 'fruit-tree', 'entry', 'respawn-point'];
+const ORDER: MarkerKind[] = ['horn', 'fenrir', 'element-lord', 'altar', 'dracula', 'entry', 'respawn-point'];
 
 const fmt = (n: number) => n.toLocaleString('es');
 

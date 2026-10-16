@@ -88,16 +88,6 @@ export interface ObjectiveSource {
   spawn?: string;
 }
 
-export interface CommanderSkillCost {
-  id: string;
-  name: string;
-  cost: number;
-  effect: string;
-  durationSeconds: number;
-  cooldownSeconds: number;
-  advice: string;
-}
-
 export interface ObjectiveRules {
   field: FieldId;
   label: string;
@@ -112,20 +102,11 @@ export interface ObjectiveRules {
   horn?: { pointsPerTick: number; tickSeconds: number; endBonus: number };
   /** Fiesta Tempo: últimos minutos sin ganador; multiplica monstruos y cuerno. */
   fiesta?: { triggerSecondsLeft: number; multiplier: number; applies: string };
-  /** Habilidades de Comandante que se compran con lo acumulado en este campo. */
-  commanderShop?: CommanderSkillCost[];
   /** Mecánicas que el asistente IA y el tablero deben considerar. */
   mechanics: string[];
   /** Desempate y otras reglas de victoria. */
   victory?: string[];
   pendingRules?: string[];
-}
-
-export interface FieldMap {
-  label: string;
-  gameName: string;
-  mapId: string;
-  description: string;
 }
 
 export interface ModeConfig {
@@ -143,8 +124,6 @@ export interface ModeConfig {
   scoring?: ModeScoring;
   /** Reglas por objetivos (Vigrid), en vez de pilares. */
   objectives?: Partial<Record<FieldId, ObjectiveRules>>;
-  /** Cada campo se juega en un mapa propio (Vigrid Field y Ruinscape). */
-  fieldMaps?: Record<FieldId, FieldMap>;
   /** Conjunto de reglas interno: no aparece como modo en la portada (sus mapas se listan en otro modo). */
   hidden?: boolean;
 }
@@ -200,11 +179,7 @@ export type MarkerKind =
   | 'fenrir'
   | 'element-lord'
   | 'altar'
-  | 'dracula'
-  // Ruinscape (Fellands): entrega de frutas, Nidhogg y árboles.
-  | 'fruit-submit'
-  | 'nidhogg'
-  | 'fruit-tree';
+  | 'dracula';
 
 export type Element = 'water' | 'wind' | 'earth' | 'fire';
 
@@ -244,7 +219,7 @@ export interface MapStyle {
   cloud: string;
   /**
    * Tipo de terreno no transitable: bosque con árboles (Vale of Clash), cañón con crestas de roca (Vigrid)
-   * o muros de ruinas (Fellands). Sin definir = bosque.
+   * o muros de ruinas. Sin definir = bosque.
    */
   terrain?: 'forest' | 'canyon' | 'ruins';
   /** Tonos de las copas de los árboles. */

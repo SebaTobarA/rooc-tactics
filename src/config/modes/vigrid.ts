@@ -1,9 +1,9 @@
 import type { ModeConfig } from '../../types/index.ts';
 
 /**
- * Vigrid Avenge: mapa de Guild League con reglas propias. Se juega en dos campos a la vez, cada uno en su mapa:
- * Vigrid Field (40 jugadores, puntos de victoria) y Ruinscape (el resto de la guild, méritos para el Comandante).
- * Es un conjunto de reglas interno: en la portada aparece como un mapa más de Guild League.
+ * Vigrid Avenge: mapa de Guild League con reglas propias. En Ragnarok Origin Classic se juega en un solo mapa
+ * (no hay Ruinscape, que en la versión Global es un tercer mapa). Es un conjunto de reglas interno: en la portada
+ * aparece como un mapa más de Guild League.
  */
 export const vigrid: ModeConfig = {
   id: 'vigrid',
@@ -11,7 +11,7 @@ export const vigrid: ModeConfig = {
   enabled: true,
   hidden: true,
   description: 'Vigrid Avenge: gana la primera guild en llegar a 800.000 puntos.',
-  maps: ['vigrid', 'vigrid-fellands'],
+  maps: ['vigrid'],
   partySize: 5,
   raidMaxParties: 8,
   raidPresets: [
@@ -19,20 +19,6 @@ export const vigrid: ModeConfig = {
     { name: '2 raids de 20', raids: [20, 20] },
     { name: '3 raids (15, 15 y 20)', raids: [15, 15, 20] },
   ],
-  fieldMaps: {
-    main: {
-      label: 'Vigrid Field',
-      gameName: 'Vigrid Field',
-      mapId: 'vigrid',
-      description: 'Campo principal: exactamente 40 jugadores de élite. Aquí se gana: cuerno, jefes y kills hasta 800.000 puntos.',
-    },
-    sub: {
-      label: 'Ruinscape',
-      gameName: 'Ruinscape (Fellands)',
-      mapId: 'vigrid-fellands',
-      description: 'Subcampo: el resto de la guild. No gana la partida: farmea frutas y Nidhogg para juntar Méritos, que el Comandante gasta en habilidades para el Vigrid Field.',
-    },
-  },
   objectives: {
     main: {
       field: 'main',
@@ -69,28 +55,6 @@ export const vigrid: ModeConfig = {
         'Desempate: 1) quién sostuvo el cuerno por último; 2) poder total de los 10 mejores miembros.',
       ],
       pendingRules: ['Duración de la partida.', '¿Fiesta Tempo duplica también las kills y el bono final?', '¿Cuánto resta cada muerte propia?', 'Cada cuánto reaparece cada Dracula.'],
-    },
-    sub: {
-      field: 'sub',
-      label: 'Ruinscape',
-      gameName: 'Ruinscape (Fellands)',
-      unit: 'méritos',
-      goal: null,
-      killPoints: null,
-      sources: [
-        { kind: 'nidhogg', name: 'Nidhogg', points: null, reward: 'frutas', spawn: '4 ubicaciones del laberinto' },
-        { kind: 'element-lord', name: 'Señor Elemental', points: null, reward: 'bufo de 60 s según su elemento', spawn: 'de a dos, poco después de empezar (también aparecen en Ruinscape)' },
-      ],
-      commanderShop: [
-        { id: 'quick-march', name: 'Quick March', cost: 30000, effect: 'toda la guild gana velocidad de movimiento (tope MSPD +30%); se pierde al morir', durationSeconds: 10, cooldownSeconds: 120, advice: 'Para rotar entre altares o perseguir.' },
-        { id: 'indomitable-will', name: 'Indomitable Will', cost: 30000, effect: 'inmunidad total a control (CC) y −20% de daño en área recibido; se pierde al morir', durationSeconds: 15, cooldownSeconds: 300, advice: 'Guárdala para defender al portador del cuerno, presionar con Fenrir o el combate final de Fiesta Tempo.' },
-      ],
-      mechanics: [
-        'Se farmean monstruos y Nidhogg para recolectar frutas, que se entregan a las ardillas NPC en las entradas (spawn) o en el punto de entrega del centro.',
-        'Se pueden robar frutas matando a enemigos que las cargan; protege a los que cargan muchas antes de entregarlas.',
-        'Los Méritos los gasta el Líder/Comandante: cada habilidad cuesta 30.000.',
-      ],
-      pendingRules: ['Méritos por fruta entregada.', '¿Las kills dan méritos?', 'Función de los árboles del laberinto.', 'Cada cuánto reaparece Nidhogg.'],
     },
   },
 };

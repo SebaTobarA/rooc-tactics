@@ -18,7 +18,7 @@ Abre `http://localhost:5173/rooc-tactics/`.
 | `npm run dev` | Servidor de desarrollo |
 | `npm run build` | Revisa tipos y compila a `dist/` |
 | `npm run generate:map` | Regenera `src/config/maps/vale-of-clash.geo.json` desde `assets-src/` y deja vistas previas en `scripts/out/` |
-| `npm run generate:vigrid` | Regenera la geometría y los marcadores de Vigrid Field y Ruinscape desde sus minimapas en `assets-src/` (pisa lo publicado desde la web) |
+| `npm run generate:vigrid` | Regenera la geometría y los marcadores de Vigrid desde su minimapa en `assets-src/` (pisa lo publicado desde la web) |
 
 ## Agregar un mapa
 
@@ -32,7 +32,7 @@ Abre `http://localhost:5173/rooc-tactics/`.
 
 Se elige en la portada como un mapa de Guild League, pero tiene reglas propias (modo interno `vigrid` en `src/config/modes/vigrid.ts`): no hay pilares, se puntúa por el cuerno, los jefes y las kills, con meta de 800.000.
 
-- Cada campo es un mapa: **Vigrid Field** (`vigrid`, 40 jugadores) y **Ruinscape / Fellands** (`vigrid-fellands`, méritos para el Comandante). Al elegir el campo se abre su mapa con la misma guild.
+- En Ragnarok Origin Classic se juega en un solo mapa (`vigrid`): no hay Ruinscape ni elección de campo.
 - Los valores de puntos, mecánicas y pendientes viven en `src/config/modes/vigrid.ts`; el simulador, la pestaña Objet. y el asistente IA los leen de ahí.
 - Íconos y estados de los objetivos (cuerno, Fenrir, Señores Elementales, altares, Draculas, Nidhogg…): `src/config/objectiveKinds.ts`.
 - Por paso se anota quién tiene el cuerno y cuántos segundos; los jefes se marcan «Último golpe: Verde/Roja» y los altares, «Corrompido».

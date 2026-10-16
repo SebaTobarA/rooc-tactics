@@ -173,24 +173,6 @@ function Objective3D({ marker, objective, x, z }: { marker: Marker; objective?: 
         </>
       );
       break;
-    case 'nidhogg':
-      top = 5;
-      body = (
-        <>
-          <mesh position-y={1.4} scale={[2, 1.2, 1.4]}><icosahedronGeometry args={[1, 0]} />{mat(look.color)}</mesh>
-          {[-1, 0, 1].map((dz) => <mesh key={dz} position={[0, 2.6, dz * 0.8]}><coneGeometry args={[0.3, 1.2, 4]} />{mat('#450a0a')}</mesh>)}
-        </>
-      );
-      break;
-    case 'fruit-submit':
-      top = 3.6;
-      body = (
-        <>
-          <mesh position-y={0.5}><cylinderGeometry args={[1.2, 0.9, 1, 10]} />{mat('#92400e')}</mesh>
-          <mesh position-y={1.8} scale={[0.9, 1.1, 0.9]}><sphereGeometry args={[1, 10, 8]} />{lit(look.color)}</mesh>
-        </>
-      );
-      break;
     default:
       top = 4.8;
       body = (

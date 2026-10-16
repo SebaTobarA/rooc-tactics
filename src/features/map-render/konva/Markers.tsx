@@ -86,7 +86,7 @@ function MarkerIcon({ marker, objective, modeId }: { marker: Marker; objective?:
 }
 
 /** Radio del ícono de un objetivo de Vigrid: los jefes grandes destacan. */
-export const objectiveRadius = (kind: Marker['kind']) => (kind === 'horn' || kind === 'fenrir' ? 15 : kind === 'element-lord' || kind === 'nidhogg' ? 13 : kind === 'respawn-point' ? 9 : 11);
+export const objectiveRadius = (kind: Marker['kind']) => (kind === 'horn' || kind === 'fenrir' ? 15 : kind === 'element-lord' ? 13 : kind === 'respawn-point' ? 9 : 11);
 
 /** Objetivo de Vigrid: círculo del color del tipo con su ícono; el anillo muestra el estado del paso. */
 function ObjectiveIcon({ marker, objective }: { marker: Marker; objective?: ObjectiveState }) {

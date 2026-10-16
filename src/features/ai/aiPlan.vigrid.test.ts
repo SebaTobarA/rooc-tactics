@@ -42,8 +42,8 @@ describe('asistente IA en Vigrid', () => {
     expect(arrow.points.length).toBeGreaterThan(2);
   });
 
-  it('todos los marcadores de los dos mapas quedan sobre terreno transitable', () => {
-    for (const m of [maps.vigrid, maps['vigrid-fellands']]) {
+  it('todos los marcadores del mapa quedan sobre terreno transitable', () => {
+    for (const m of [maps.vigrid]) {
       expect(m.markers.filter((k) => !isWalkable(k.pos, m.geometry)).map((k) => k.id)).toEqual([]);
     }
   });

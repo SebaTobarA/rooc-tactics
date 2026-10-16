@@ -1,5 +1,5 @@
 import { jobById, jobs } from '../../config/jobs.ts';
-import { FIELD_LABELS, fieldLabel, fieldScoring, modeById, objectiveRules } from '../../config/modes/index.ts';
+import { FIELD_LABELS, fieldScoring, modeById, objectiveRules } from '../../config/modes/index.ts';
 import { ELEMENT_LOOKS, lookOf } from '../../config/objectiveKinds.ts';
 import { roles } from '../../config/roles.ts';
 import { clamp01, round4 } from '../../lib/geometry.ts';
@@ -81,10 +81,8 @@ const VIGRID_EXAMPLE = `{
 }`;
 
 /** Reglas de un campo por objetivos (Vigrid) para el encargo. */
-function objectiveRulesText(rules: ObjectiveRules, strategy: Strategy, map: MapConfig): string {
+function objectiveRulesText(rules: ObjectiveRules, map: MapConfig): string {
   const fmt = (n: number) => n.toLocaleString('es');
-  const other = rules.field === 'main' ? 'sub' : 'main';
-  const otherRules = objectiveRules(strategy.modeId, other);
   const lines = [
     rules.goal != null
       ? `- Esta estrategia es para el ${rules.gameName}: aquí se gana la partida. Meta: ${fmt(rules.goal)} puntos.`
@@ -95,11 +93,6 @@ function objectiveRulesText(rules: ObjectiveRules, strategy: Strategy, map: MapC
     rules.killPoints != null ? `- Cada kill de jugador vale ${fmt(rules.killPoints)}; las muertes propias restan eficiencia.` : '',
     rules.fiesta ? `- Fiesta Tempo (últimos ${Math.round(rules.fiesta.triggerSecondsLeft / 60)} min): ${rules.fiesta.applies} Marca esos pasos con "fiestaTempo": true.` : '',
     ...rules.mechanics.map((m) => `- ${m}`),
-    ...(rules.commanderShop ?? []).map((k) => `- Habilidad de Comandante ${k.name} (${fmt(k.cost)} ${rules.unit}): ${k.durationSeconds} s, ${k.effect}; enfriamiento ${k.cooldownSeconds} s. ${k.advice}`),
-    rules.field === 'main' && otherRules?.commanderShop
-      ? `- En paralelo, el resto de la guild juega ${otherRules.gameName} y junta ${otherRules.unit}; con ellos el Comandante activa en este campo: ${otherRules.commanderShop.map((k) => `${k.name} (${k.durationSeconds} s, ${k.effect}; enfriamiento ${k.cooldownSeconds} s)`).join('; ')}. Indica en las notas cuándo usarlas.`
-      : '',
-    rules.field === 'sub' ? `- La victoria se decide en el ${fieldLabel(strategy.modeId, 'main')} (40 jugadores); este campo es para el resto de la guild.` : '',
     rules.goal != null ? '- Optimiza: asegurar la Fallen Valkyrie, proteger al portador rotando por altares activos (pensando en las oleadas de corrupción), tomar Señores Elementales y Draculas sin descuidar al portador, y controlar Fenrir. Las kills sueltas rinden poco.' : '- Optimiza: juntar frutas rápido y seguro, entregarlas sin que te las roben y llegar cuanto antes a cada habilidad de Comandante.',
     rules.pendingRules?.length ? `- Sin confirmar (no lo des por hecho): ${rules.pendingRules.join(' ')}` : '',
   ];
@@ -155,7 +148,7 @@ export function buildPrompt(request: string, strategy: Strategy, map: MapConfig)
 ${request.trim() || '(Propón una estrategia de apertura razonable y pregúntame lo que necesites.)'}
 
 ## Campo y reglas
-${objRules ? objectiveRulesText(objRules, strategy, map) : `${fieldRules}
+${objRules ? objectiveRulesText(objRules, map) : `${fieldRules}
 - Los pilares aparecen durante la partida y tienen tier. Su sello se rompe con daño puro; al romperlo queda una zona de captura que suma ${unit} por tick a la guild con más jugadores dentro, hasta un máximo de ticks; luego el pilar se agota.
 - ${unit[0].toUpperCase() + unit.slice(1)} por tier en este campo: ${tiers || 'sin datos'}. Si un valor dice "sin dato", no lo inventes.${fiestaRule}${pending}`}
 - Una party tiene máximo ${mode?.partySize ?? 5} jugadores; una raid, máximo ${mode?.raidMaxParties ?? 8} partys.

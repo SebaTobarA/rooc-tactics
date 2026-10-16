@@ -18,10 +18,7 @@ export function fieldScoring(modeId: string, field: FieldId | undefined): FieldS
 }
 
 /** ¿El modo distingue Campo Principal y Secundario? */
-export const hasFields = (modeId: string) => !!modeById(modeId)?.scoring?.sub || !!modeById(modeId)?.fieldMaps;
-
-/** Nombre del campo en este modo (en Vigrid cada campo tiene nombre propio). */
-export const fieldLabel = (modeId: string, field: FieldId) => modeById(modeId)?.fieldMaps?.[field].label ?? FIELD_LABELS[field];
+export const hasFields = (modeId: string) => !!modeById(modeId)?.scoring?.sub;
 
 /** Reglas por objetivos (Vigrid) del campo pedido; undefined en los modos por pilares. */
 export const objectiveRules = (modeId: string, field: FieldId | undefined): ObjectiveRules | undefined => modeById(modeId)?.objectives?.[field ?? 'main'];
