@@ -11,6 +11,9 @@ const WIDTH = 3072;
  */
 export function buildGroundTexture(map: MapConfig, trees: Tree[]): THREE.CanvasTexture {
   const { geometry: g, style } = map;
+  const forest = (style.terrain ?? 'forest') === 'forest';
+  /** Color de las sombras horneadas: verdoso en el bosque, pardo en el cañón y las ruinas. */
+  const shade = (a: number) => (forest ? `rgba(8,24,14,${a})` : `rgba(28,16,8,${a})`);
   const W = WIDTH;
   const H = Math.round(WIDTH / map.aspect);
   const canvas = document.createElement('canvas');
@@ -41,10 +44,10 @@ export function buildGroundTexture(map: MapConfig, trees: Tree[]): THREE.CanvasT
   const bounds = path([g.bounds]);
   ctx.save();
   ctx.clip(bounds);
-  ctx.fillStyle = '#1c452b';
+  ctx.fillStyle = forest ? '#1c452b' : style.forestShade;
   ctx.fillRect(0, 0, W, H);
   ctx.globalAlpha = 0.5;
-  speckle(5000, ['#173a24', '#24573a', '#2a6340', '#15331f'], 3, 12);
+  speckle(5000, forest ? ['#173a24', '#24573a', '#2a6340', '#15331f'] : [style.forest, style.canopyShade, ...style.canopy], 3, 12);
   ctx.globalAlpha = 1;
 
   for (const p of g.water) {
@@ -70,6 +73,8 @@ export function buildGroundTexture(map: MapConfig, trees: Tree[]): THREE.CanvasT
     // Variación de la arena.
     ctx.globalAlpha = 0.35;
     speckle(2600, ['#cdb97a', '#e6d8a4', '#d2bf83', '#bfa96a'], 2, 9);
+    // Huellas de viento en la arena del cañón.
+    if (!forest) speckle(900, [style.grass], 6, 22);
     ctx.globalAlpha = 1;
     // Pasto: borde ancho y difuso hacia adentro; la arena queda al centro de los senderos.
     ctx.strokeStyle = style.grass;
@@ -80,13 +85,13 @@ export function buildGroundTexture(map: MapConfig, trees: Tree[]): THREE.CanvasT
     ctx.stroke(shape);
     ctx.shadowBlur = 0;
     ctx.globalAlpha = 0.5;
-    ctx.strokeStyle = '#5c9a3a';
+    ctx.strokeStyle = forest ? '#5c9a3a' : style.walkableStroke;
     ctx.lineWidth = 16 * k;
     ctx.stroke(shape);
     ctx.globalAlpha = 1;
     // Sombra del muro de ruinas y del bosque sobre el claro.
-    ctx.strokeStyle = 'rgba(8,24,14,0.55)';
-    ctx.shadowColor = 'rgba(8,24,14,0.9)';
+    ctx.strokeStyle = shade(0.55);
+    ctx.shadowColor = shade(0.9);
     ctx.shadowBlur = 12 * k;
     ctx.shadowOffsetX = 5 * k;
     ctx.shadowOffsetY = 7 * k;

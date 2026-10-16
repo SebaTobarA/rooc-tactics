@@ -9,8 +9,9 @@ export const guildLeague: ModeConfig = {
   id: 'guild-league',
   name: 'Guild League',
   enabled: true,
-  description: 'GvG por liga. Gana la primera guild que llegue a 3000 puntos.',
-  maps: ['vale-of-clash', 'stellar-clash', 'guild-league-map-3'],
+  description: 'GvG por liga. Vale of Clash: gana la primera guild en llegar a 3000 puntos. Vigrid Avenge: a 800.000.',
+  // Vigrid tiene reglas propias (modo interno `vigrid`), pero se elige aquí como un mapa más.
+  maps: ['vale-of-clash', 'stellar-clash', 'vigrid'],
   partySize: 5,
   raidMaxParties: 8,
   raidPresets: [

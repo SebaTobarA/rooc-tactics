@@ -33,18 +33,24 @@ export async function publishMap(): Promise<void> {
   if (!token) throw new Error('Inicia sesión como superadministrador para publicar.');
   const { map } = useMapStore.getState();
   const resolved = tierPoints(map.modeId, useScoringStore.getState().overrides);
+  // Los modos por objetivos (Vigrid) no tienen tabla de puntos por tier que publicar.
+  const hasTiers = !!modeById(map.modeId)?.scoring;
   await commitFiles(
     token,
     [
       { path: `src/config/maps/${map.id}.geo.json`, content: JSON.stringify(map.geometry) + '\n' },
-      { path: `src/config/maps/${map.id}.markers.json`, content: pretty({ numpad: map.numpad, markers: map.markers }) },
-      {
-        path: `src/config/modes/${map.modeId}.scoring.json`,
-        content: pretty({
-          tiers: resolved.tiers.map((t) => ({ id: t.id, destroyPoints: t.destroy, capturePointsPerTick: t.capturePerTick, maxTicks: t.maxTicks })),
-          captureTickSeconds: resolved.tickSeconds,
-        }),
-      },
+      { path: `src/config/maps/${map.id}.markers.json`, content: pretty({ aspect: map.aspect, numpad: map.numpad, markers: map.markers }) },
+      ...(hasTiers
+        ? [
+            {
+              path: `src/config/modes/${map.modeId}.scoring.json`,
+              content: pretty({
+                tiers: resolved.tiers.map((t) => ({ id: t.id, destroyPoints: t.destroy, capturePointsPerTick: t.capturePerTick, maxTicks: t.maxTicks })),
+                captureTickSeconds: resolved.tickSeconds,
+              }),
+            },
+          ]
+        : []),
     ],
     `Mapa ${map.name}: cambios publicados desde la web por ${login ?? 'el superadministrador'}`,
   );

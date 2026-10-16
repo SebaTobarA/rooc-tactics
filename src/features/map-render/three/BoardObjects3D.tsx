@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { jobById } from '../../../config/jobs.ts';
 import { roleById } from '../../../config/roles.ts';
 import { tierRank } from '../../../config/modes/index.ts';
+import { lookOf } from '../../../config/objectiveKinds.ts';
 import { resolvedStats, useScoringStore } from '../../../store/scoringStore.ts';
 import { useStrategyStore } from '../../../store/strategyStore.ts';
 import { zoneCenters, zoneOf, ZONE_KEYS } from '../../../lib/numpad.ts';
@@ -14,7 +15,7 @@ import { groupLabel, tokenBadge } from '../../party/describeToken.ts';
 import { curveControl } from '../../board/hit.ts';
 import { teamColor } from '../../board/konva/Tokens.tsx';
 import type { Draft } from '../../board/useToolController.ts';
-import { formatTimer, SIDE_COLORS, STATUS_COLORS } from '../konva/Markers.tsx';
+import { formatTimer, objectiveValue, SIDE_COLORS, STATUS_COLORS } from '../konva/Markers.tsx';
 import { labelTexture, pingTexture, tokenTexture } from './textures.ts';
 
 const FLAT = -Math.PI / 2;
@@ -88,6 +89,132 @@ function Pillar({ marker, objective, modeId, x, z }: { marker: Marker; objective
   );
 }
 
+/** Objetivos de Vigrid en volumen: formas simples con el color del tipo y su ícono flotando encima. */
+function Objective3D({ marker, objective, x, z }: { marker: Marker; objective?: ObjectiveState; x: number; z: number }) {
+  const look = lookOf(marker)!;
+  const status = objective?.status;
+  const dim = status === 'destroyed' || status === 'pending';
+  const glow = status === 'active' ? 0.45 : status?.startsWith('captured') ? 0.3 : 0.15;
+  const mat = (color: string, extra: object = {}) => <meshLambertMaterial color={color} flatShading transparent={dim} opacity={dim ? 0.55 : 1} {...extra} />;
+  const lit = (color: string) => mat(color, { emissive: color, emissiveIntensity: glow });
+  const stone = '#b9b2a6';
+  let body: React.ReactNode;
+  let top = 3.4;
+  switch (marker.kind) {
+    case 'entry':
+      top = 5.2;
+      body = (
+        <>
+          {[-1.6, 1.6].map((dx) => <mesh key={dx} position={[dx, 2, 0]}><boxGeometry args={[0.55, 4, 0.55]} />{mat(look.color)}</mesh>)}
+          <mesh position={[0, 4.2, 0]}><boxGeometry args={[4.4, 0.5, 0.8]} />{mat(look.color)}</mesh>
+          <mesh position={[0, 0.1, 0]}><cylinderGeometry args={[2.6, 2.8, 0.2, 8]} />{mat(stone)}</mesh>
+        </>
+      );
+      break;
+    case 'respawn-point':
+      top = 2.6;
+      body = (
+        <>
+          <mesh position-y={0.12}><cylinderGeometry args={[1.5, 1.6, 0.24, 16]} />{lit(look.color)}</mesh>
+          <mesh position-y={1.6} scale={[0.6, 0.9, 0.6]}><octahedronGeometry args={[1]} />{lit(look.color)}</mesh>
+        </>
+      );
+      break;
+    case 'horn':
+      top = 6.2;
+      body = (
+        <>
+          <mesh position-y={0.3}><cylinderGeometry args={[2.6, 3, 0.6, 12]} />{mat(stone)}</mesh>
+          {/* Cuerno dorado inclinado sobre el estrado. */}
+          <mesh position={[0, 3, 0]} rotation-z={0.9}><coneGeometry args={[1.1, 4.2, 14, 1, true]} />{lit(look.color)}</mesh>
+          <mesh position={[1.4, 3.9, 0]}><torusGeometry args={[1.1, 0.22, 8, 20]} />{lit('#fde68a')}</mesh>
+        </>
+      );
+      break;
+    case 'fenrir':
+      top = 5.2;
+      body = (
+        <>
+          <mesh position={[0, 1.8, 0]} scale={[1.6, 1.1, 2.4]}><icosahedronGeometry args={[1, 0]} />{mat(look.color)}</mesh>
+          <mesh position={[0, 3, 1.9]} scale={[0.9, 0.8, 1.1]}><icosahedronGeometry args={[1, 0]} />{mat('#475569')}</mesh>
+          {[-0.45, 0.45].map((dx) => <mesh key={dx} position={[dx, 3.9, 1.8]}><coneGeometry args={[0.28, 0.8, 4]} />{mat('#475569')}</mesh>)}
+          {[-0.35, 0.35].map((dx) => <mesh key={`e${dx}`} position={[dx, 3.15, 2.85]}><sphereGeometry args={[0.14, 6, 6]} /><meshBasicMaterial color="#ef4444" /></mesh>)}
+        </>
+      );
+      break;
+    case 'element-lord':
+      top = 5;
+      body = (
+        <>
+          <mesh position-y={0.35}><cylinderGeometry args={[1.5, 1.8, 0.7, 6]} />{mat(stone)}</mesh>
+          <mesh position-y={2.6} scale={[1.1, 1.6, 1.1]}><octahedronGeometry args={[1]} />{lit(look.color)}</mesh>
+        </>
+      );
+      break;
+    case 'altar': {
+      const corrupted = status === 'destroyed';
+      top = 4;
+      body = (
+        <>
+          <mesh position-y={0.4}><cylinderGeometry args={[2.1, 2.4, 0.8, 8]} />{mat(stone)}</mesh>
+          <mesh position-y={1.6}><boxGeometry args={[1.2, 1.6, 1.2]} />{mat(corrupted ? '#4c1d95' : '#d6c3a0')}</mesh>
+          <mesh position-y={2.6}><cylinderGeometry args={[1.1, 0.8, 0.4, 8]} />{lit(corrupted ? '#7c3aed' : look.color)}</mesh>
+        </>
+      );
+      break;
+    }
+    case 'dracula':
+      top = 4.6;
+      body = (
+        <>
+          <mesh position-y={1.6} scale={[1, 1, 0.6]}><cylinderGeometry args={[0.8, 1.1, 3.2, 6]} />{mat(look.color)}</mesh>
+          <mesh position-y={3.4}><coneGeometry args={[0.9, 0.8, 6]} />{lit('#7f1d1d')}</mesh>
+        </>
+      );
+      break;
+    case 'nidhogg':
+      top = 5;
+      body = (
+        <>
+          <mesh position-y={1.4} scale={[2, 1.2, 1.4]}><icosahedronGeometry args={[1, 0]} />{mat(look.color)}</mesh>
+          {[-1, 0, 1].map((dz) => <mesh key={dz} position={[0, 2.6, dz * 0.8]}><coneGeometry args={[0.3, 1.2, 4]} />{mat('#450a0a')}</mesh>)}
+        </>
+      );
+      break;
+    case 'fruit-submit':
+      top = 3.6;
+      body = (
+        <>
+          <mesh position-y={0.5}><cylinderGeometry args={[1.2, 0.9, 1, 10]} />{mat('#92400e')}</mesh>
+          <mesh position-y={1.8} scale={[0.9, 1.1, 0.9]}><sphereGeometry args={[1, 10, 8]} />{lit(look.color)}</mesh>
+        </>
+      );
+      break;
+    default:
+      top = 4.8;
+      body = (
+        <>
+          <mesh position-y={0.9}><cylinderGeometry args={[0.25, 0.35, 1.8, 5]} />{mat('#8a6a4a')}</mesh>
+          <mesh position-y={2.6}><icosahedronGeometry args={[1.4, 0]} />{mat(look.color)}</mesh>
+        </>
+      );
+  }
+  const ring = status?.startsWith('captured') ? STATUS_COLORS[status] : null;
+  return (
+    <group position={[x, 0.42, z]}>
+      {body}
+      {ring && (
+        <mesh rotation-x={FLAT} position-y={0.08} renderOrder={4}>
+          <ringGeometry args={[3, 3.7, 40]} />
+          <meshBasicMaterial color={ring} transparent opacity={0.8} depthTest={false} />
+        </mesh>
+      )}
+      <Label text={look.icon} position={[0, top + 1.2, 0]} height={2.2} />
+      {objective?.timerSeconds != null && <Label text={formatTimer(objective.timerSeconds)} position={[0, top + 3, 0]} color="#fde68a" />}
+    </group>
+  );
+}
+
 export const Markers3D = memo(function Markers3D({ map, proj, objectives, labelHeight = 1.2 }: { map: MapConfig; proj: Projection3; objectives: ObjectiveState[]; labelHeight?: number }) {
   const overrides = useScoringStore((s) => s.overrides);
   const field = useStrategyStore((s) => s.strategy.field) ?? 'main';
@@ -100,7 +227,11 @@ export const Markers3D = memo(function Markers3D({ map, proj, objectives, labelH
         const tier = objectives.find((o) => o.markerId === m.id)?.tier ?? m.tier;
         const value = stats.find((s) => s.id === tier)?.pillarTotal;
         const pillar = m.kind === 'central-pillar' || m.kind === 'pillar-slot';
-        const label = <Label text={`${m.label}${m.confirmed || pillar ? '' : ' (?)'} · Z${zoneOf(m.pos, map.numpad)}${pillar && value != null ? ` · ${value} ${unitShort}` : ''}`} position={[x, 0.3, z + 3]} height={labelHeight} />;
+        const bossValue = pillar ? null : objectiveValue(map.modeId, field, m.kind);
+        const label = <Label text={`${m.label}${m.confirmed || pillar ? '' : ' (?)'} · Z${zoneOf(m.pos, map.numpad)}${pillar && value != null ? ` · ${value} ${unitShort}` : ''}${bossValue != null ? ` · ${(bossValue / 1000).toLocaleString('es')}k` : ''}`} position={[x, 0.3, z + 3]} height={labelHeight} />;
+        if (lookOf(m)) {
+          return <group key={m.id}><Objective3D marker={m} objective={objectives.find((o) => o.markerId === m.id)} x={x} z={z} />{label}</group>;
+        }
         if (m.kind === 'central-pillar' || m.kind === 'pillar-slot') {
           return <group key={m.id}><Pillar marker={m} objective={objectives.find((o) => o.markerId === m.id)} modeId={map.modeId} x={x} z={z} />{label}</group>;
         }

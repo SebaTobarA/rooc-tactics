@@ -51,12 +51,17 @@ export const MapShapes = memo(function MapShapes({ map, proj, onPick }: Props) {
     ctx.rect(0, 0, proj.w, proj.h);
     ctx.closePath();
   };
-  const rockFill = (p: Polygon) => (p.kind === 'rock' ? style.rock : p.kind === 'ruin' ? style.plazaStroke : style.forestShade);
+  const terrain = style.terrain ?? 'forest';
+  const rockFill = (p: Polygon) => (p.kind === 'rock' ? style.rock : p.kind === 'ruin' ? (terrain === 'ruins' ? style.wall : style.plazaStroke) : style.forestShade);
 
   // Copas de árboles, ordenadas de arriba hacia abajo para que se solapen como un bosque visto desde el cielo.
+  // En el cañón y en las ruinas son bloques de roca o piedra (los tonos salen del estilo), un poco más chicos.
   const trees = useMemo(
-    () => scatterForest(g, map.aspect, 62, 7, 'rect').map((t) => ({ ...proj.toWorld(t.pos), r: 9 + t.size * 6, tone: Math.floor(t.shade * style.canopy.length) })).sort((a, b) => a.y - b.y),
-    [g, map.aspect, proj, style.canopy.length],
+    () =>
+      scatterForest(g, map.aspect, terrain === 'forest' ? 62 : 74, 7, 'rect')
+        .map((t) => ({ ...proj.toWorld(t.pos), r: (terrain === 'forest' ? 9 : 7) + t.size * 6, tone: Math.floor(t.shade * style.canopy.length) }))
+        .sort((a, b) => a.y - b.y),
+    [g, map.aspect, proj, style.canopy.length, terrain],
   );
 
   const markerWorld = useMemo(() => map.markers.map((m) => proj.toWorld(m.pos)), [map.markers, proj]);
@@ -151,13 +156,30 @@ export const MapShapes = memo(function MapShapes({ map, proj, onPick }: Props) {
             </Group>
           );
         })}
-        {/* Muros de ruinas: bloques de piedra a lo largo de los brazos de las espirales. */}
-        <Path data={wallPath} stroke="#4b525a" strokeWidth={6.5} lineJoin="round" lineCap="butt" dash={[13, 5]} opacity={0.8} listening={false} />
-        <Path data={wallPath} stroke={style.wall} strokeWidth={4} lineJoin="round" lineCap="butt" dash={[13, 5]} listening={false} />
-        {g.obstacles.filter((p) => p.kind !== 'forest').map((p) => (
-          <Path key={p.id} data={d(p)} fill={rockFill(p)} stroke="#3d444c" strokeWidth={2} lineJoin="round" fillRule="evenodd"
-            shadowColor="#000" shadowBlur={8} shadowOpacity={0.5} onClick={pick('obstacles', p.id)} />
-        ))}
+        {/* Muros de ruinas: bloques de piedra a lo largo de los brazos de las espirales (solo en el bosque de Vale of Clash). */}
+        {terrain === 'forest' && (
+          <>
+            <Path data={wallPath} stroke="#4b525a" strokeWidth={6.5} lineJoin="round" lineCap="butt" dash={[13, 5]} opacity={0.8} listening={false} />
+            <Path data={wallPath} stroke={style.wall} strokeWidth={4} lineJoin="round" lineCap="butt" dash={[13, 5]} listening={false} />
+          </>
+        )}
+        {g.obstacles.filter((p) => p.kind !== 'forest').map((p) => {
+          const data = d(p);
+          return (
+            <Group key={p.id}>
+              <Path data={data} fill={rockFill(p)} stroke={terrain === 'forest' ? '#3d444c' : style.canopyShade} strokeWidth={2} lineJoin="round" fillRule="evenodd"
+                shadowColor="#000" shadowBlur={terrain === 'forest' ? 8 : 12} shadowOffsetX={terrain === 'forest' ? 0 : 4} shadowOffsetY={terrain === 'forest' ? 0 : 6} shadowOpacity={0.55} onClick={pick('obstacles', p.id)} />
+              {/* Cresta o muro con volumen: luz arriba a la izquierda y la cara en sombra hacia abajo. */}
+              {terrain !== 'forest' && (
+                <Group clipFunc={() => [new Path2D(data), 'evenodd']} listening={false}>
+                  <Path data={data} stroke={style.canopyShade} strokeWidth={9} lineJoin="round" opacity={0.35} x={3} y={4} />
+                  <Path data={data} stroke={style.canopy[3]} strokeWidth={4} lineJoin="round" opacity={0.7} x={-1.5} y={-2} />
+                  {terrain === 'ruins' && <Path data={data} stroke={style.canopyShade} strokeWidth={1} dash={[2, 11]} opacity={0.5} />}
+                </Group>
+              )}
+            </Group>
+          );
+        })}
         {g.decor.map((p) => (
           <Path key={p.id} data={d(p)} fill={rockFill(p)} stroke="#3d444c" strokeWidth={1.5} lineJoin="round" fillRule="evenodd" onClick={pick('decor', p.id)} />
         ))}

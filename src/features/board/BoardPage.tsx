@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { maps } from '../../config/maps/index.ts';
-import { FIELD_LABELS, fieldScoring, hasFields, modeById } from '../../config/modes/index.ts';
+import { fieldGoalText, fieldLabel, hasFields, modeById } from '../../config/modes/index.ts';
 import { FieldChooser } from './FieldChooser.tsx';
 import { repository } from '../../data/StrategyRepository.ts';
 import { useIsAdmin } from '../../store/adminStore.ts';
@@ -79,7 +79,7 @@ export function BoardPage({ mapId }: { mapId: string }) {
         <span className="text-sm text-slate-500 dark:text-slate-400">{modeById(map.modeId)?.name} › {map.name}</span>
         {hasFields(map.modeId) && (
           <button className={`${button} border-sky-500 font-medium`} onClick={() => setFieldOpen(true)} title="Cambia el campo en que se concentra la estrategia">
-            {strategy.field ? `${FIELD_LABELS[strategy.field]} · ${fieldScoring(map.modeId, strategy.field)?.goal != null ? `meta ${fieldScoring(map.modeId, strategy.field)!.goal} puntos` : 'moral'}` : 'Elegir campo'}
+            {strategy.field ? `${fieldLabel(map.modeId, strategy.field)} · ${fieldGoalText(map.modeId, strategy.field)}` : 'Elegir campo'}
           </button>
         )}
         <input

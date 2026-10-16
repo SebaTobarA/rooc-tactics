@@ -1,4 +1,4 @@
-import { FIELD_LABELS, modeById } from '../../config/modes/index.ts';
+import { FIELD_LABELS, modeById, objectiveRules } from '../../config/modes/index.ts';
 import { useStrategyStore } from '../../store/strategyStore.ts';
 import { useUiStore } from '../../store/uiStore.ts';
 import { button, input } from '../board/ui.ts';
@@ -11,7 +11,10 @@ export function Timeline() {
   const checkpoint = useStrategyStore((s) => s.checkpoint);
   const playing = useUiStore((s) => s.playback !== null);
   const step = steps[stepIndex];
-  const fiesta = modeById(useStrategyStore.getState().strategy.modeId)?.scoring?.fiestaTempo;
+  const { modeId, field } = useStrategyStore((s) => s.strategy);
+  const fiesta = modeById(modeId)?.scoring?.fiestaTempo;
+  // Vigrid: Fiesta Tempo duplica cuerno y monstruos en su campo principal.
+  const objectiveFiesta = objectiveRules(modeId, field)?.fiesta;
 
   return (
     <div className="flex shrink-0 gap-3 border-t border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-950">
@@ -45,6 +48,12 @@ export function Timeline() {
           <label className="flex items-center gap-2 text-xs" title={`Duplica lo ganado por captura en los campos donde está confirmado (${fiesta.appliesTo.map((f) => FIELD_LABELS[f]).join(', ')})`}>
             <input type="checkbox" checked={!!step.fiestaTempo} onChange={(e) => { checkpoint(); patchStepFlags(stepIndex, { fiestaTempo: e.target.checked }); }} />
             Fiesta Tempo activa en este paso (últimos {Math.round(fiesta.triggerSecondsLeft / 60)} min sin ganador)
+          </label>
+        )}
+        {objectiveFiesta && (
+          <label className="flex items-center gap-2 text-xs" title={objectiveFiesta.applies}>
+            <input type="checkbox" checked={!!step.fiestaTempo} onChange={(e) => { checkpoint(); patchStepFlags(stepIndex, { fiestaTempo: e.target.checked }); }} />
+            Fiesta Tempo activa en este paso (cuerno y jefes ×{objectiveFiesta.multiplier})
           </label>
         )}
         <input className={`${input} font-medium`} value={step.name} placeholder="Nombre del paso (ej.: 0:00 salida)" aria-label="Nombre del paso" onFocus={checkpoint} onChange={(e) => patchStep(stepIndex, { name: e.target.value })} />

@@ -1,9 +1,10 @@
-import type { FieldId, FieldScoring, ModeConfig } from '../../types/index.ts';
+import type { FieldId, FieldScoring, ModeConfig, ObjectiveRules } from '../../types/index.ts';
 import { dimensionDrill } from './dimension-drill.ts';
 import { emperiumOverrun } from './emperium-overrun.ts';
 import { guildLeague } from './guild-league.ts';
+import { vigrid } from './vigrid.ts';
 
-export const modes: ModeConfig[] = [guildLeague, emperiumOverrun, dimensionDrill];
+export const modes: ModeConfig[] = [guildLeague, emperiumOverrun, dimensionDrill, vigrid];
 export const modeById = (id: string) => modes.find((m) => m.id === id);
 
 export const FIELD_LABELS: Record<FieldId, string> = { main: 'Campo Principal', sub: 'Campo Secundario' };
@@ -17,7 +18,21 @@ export function fieldScoring(modeId: string, field: FieldId | undefined): FieldS
 }
 
 /** ¿El modo distingue Campo Principal y Secundario? */
-export const hasFields = (modeId: string) => !!modeById(modeId)?.scoring?.sub;
+export const hasFields = (modeId: string) => !!modeById(modeId)?.scoring?.sub || !!modeById(modeId)?.fieldMaps;
+
+/** Nombre del campo en este modo (en Vigrid cada campo tiene nombre propio). */
+export const fieldLabel = (modeId: string, field: FieldId) => modeById(modeId)?.fieldMaps?.[field].label ?? FIELD_LABELS[field];
+
+/** Reglas por objetivos (Vigrid) del campo pedido; undefined en los modos por pilares. */
+export const objectiveRules = (modeId: string, field: FieldId | undefined): ObjectiveRules | undefined => modeById(modeId)?.objectives?.[field ?? 'main'];
+
+/** Texto corto del objetivo del campo, para la cabecera. */
+export function fieldGoalText(modeId: string, field: FieldId): string {
+  const rules = objectiveRules(modeId, field);
+  const goal = rules ? rules.goal : fieldScoring(modeId, field)?.goal;
+  const unit = rules?.unit ?? fieldScoring(modeId, field)?.unit ?? 'puntos';
+  return goal != null ? `meta ${goal.toLocaleString('es')} ${unit}` : unit;
+}
 
 /**
  * Tamaño relativo de un pilar según su tier: 0 para el tier más bajo de la lista del modo, 1 para el más alto.

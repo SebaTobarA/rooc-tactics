@@ -1,7 +1,8 @@
 import { memo } from 'react';
 import { Circle, Group, Path, Star, Text } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
-import { tierRank } from '../../../config/modes/index.ts';
+import { objectiveRules, tierRank } from '../../../config/modes/index.ts';
+import { lookOf } from '../../../config/objectiveKinds.ts';
 import { resolvedStats, useScoringStore } from '../../../store/scoringStore.ts';
 import { useStrategyStore } from '../../../store/strategyStore.ts';
 import { zoneOf } from '../../../lib/numpad.ts';
@@ -79,7 +80,39 @@ function MarkerIcon({ marker, objective, modeId }: { marker: Marker; objective?:
           <Path data={TOWER} fill="#fff" scaleX={0.85} scaleY={0.85} />
         </>
       );
+    default:
+      return <ObjectiveIcon marker={marker} objective={objective} />;
   }
+}
+
+/** Radio del ícono de un objetivo de Vigrid: los jefes grandes destacan. */
+export const objectiveRadius = (kind: Marker['kind']) => (kind === 'horn' || kind === 'fenrir' ? 15 : kind === 'element-lord' || kind === 'nidhogg' ? 13 : kind === 'respawn-point' ? 9 : 11);
+
+/** Objetivo de Vigrid: círculo del color del tipo con su ícono; el anillo muestra el estado del paso. */
+function ObjectiveIcon({ marker, objective }: { marker: Marker; objective?: ObjectiveState }) {
+  const look = lookOf(marker);
+  if (!look) return <Circle radius={6} fill="#f8fafc" />;
+  const r = objectiveRadius(marker.kind);
+  const status = objective?.status;
+  const ring = status && look.statuses ? (status === 'pending' ? 'rgba(248,250,252,0.6)' : STATUS_COLORS[status]) : '#f8fafc';
+  const dim = status === 'destroyed' || status === 'pending';
+  return (
+    <>
+      {status?.startsWith('captured') && <Circle radius={r + 6} stroke={ring} strokeWidth={3} opacity={0.9} />}
+      <Circle radius={r} fill={look.color} stroke={ring} strokeWidth={status && status !== 'pending' ? 3 : 2} dash={status === 'pending' ? [4, 3] : undefined}
+        opacity={dim ? 0.55 : 1} shadowColor="#000" shadowBlur={6} shadowOpacity={0.5} />
+      <Text text={look.icon} fontSize={r * 1.15} width={r * 3} offsetX={r * 1.5} offsetY={r * 0.6} align="center" opacity={dim ? 0.6 : 1} />
+      {status === 'destroyed' && <Path data={`M${-r * 0.6},${-r * 0.6}L${r * 0.6},${r * 0.6}M${r * 0.6},${-r * 0.6}L${-r * 0.6},${r * 0.6}`} stroke="#f8fafc" strokeWidth={2.5} lineCap="round" />}
+      {objective?.timerSeconds != null && (
+        <Text text={formatTimer(objective.timerSeconds)} y={-r - 14} fontSize={11} fontStyle="bold" fill="#fde68a" width={60} offsetX={30} align="center" shadowColor="#000" shadowBlur={3} shadowOpacity={1} />
+      )}
+    </>
+  );
+}
+
+/** Puntos de un objetivo de Vigrid según las reglas del campo (para la etiqueta). */
+export function objectiveValue(modeId: string, field: 'main' | 'sub', kind: Marker['kind']): number | null {
+  return objectiveRules(modeId, field)?.sources.find((s) => s.kind === kind)?.points ?? null;
 }
 
 interface Props {
@@ -110,6 +143,7 @@ export const Markers = memo(function Markers({ markers, proj, grid, modeId, obje
         const stop = (e: KonvaEventObject<MouseEvent | TouchEvent>) => (e.cancelBubble = true);
         const objective = objectives?.find((o) => o.markerId === m.id);
         const pillar = m.kind === 'central-pillar' || m.kind === 'pillar-slot';
+        const bossValue = pillar ? null : objectiveValue(modeId, field, m.kind);
         return (
           <Group
             key={m.id}
@@ -125,8 +159,8 @@ export const Markers = memo(function Markers({ markers, proj, grid, modeId, obje
             {selectedId === m.id && <Circle radius={20} stroke="#38bdf8" strokeWidth={2} dash={[5, 4]} />}
             <MarkerIcon marker={m} objective={objective} modeId={modeId} />
             <Text
-              text={`${m.label}${m.confirmed || pillar ? '' : ' (?)'} · Z${zoneOf(m.pos, grid)}${pillar && valueOf(objective?.tier ?? m.tier) != null ? ` · ${valueOf(objective?.tier ?? m.tier)} ${unitShort}` : ''}`}
-              y={pillar ? pillarRadius(tierRank(modeId, objective?.tier ?? m.tier)) + 4 : 15}
+              text={`${m.label}${m.confirmed || pillar ? '' : ' (?)'} · Z${zoneOf(m.pos, grid)}${pillar && valueOf(objective?.tier ?? m.tier) != null ? ` · ${valueOf(objective?.tier ?? m.tier)} ${unitShort}` : ''}${bossValue != null ? ` · ${(bossValue / 1000).toLocaleString('es')}k` : ''}`}
+              y={pillar ? pillarRadius(tierRank(modeId, objective?.tier ?? m.tier)) + 4 : lookOf(m) ? objectiveRadius(m.kind) + 4 : 15}
               width={160}
               offsetX={80}
               align="center"

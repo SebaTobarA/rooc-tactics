@@ -1,7 +1,11 @@
 import { useState } from 'react';
 import { PartiesPanel } from '../party/PartiesPanel.tsx';
 import { RaidsPanel } from '../party/RaidsPanel.tsx';
+import { modeById } from '../../config/modes/index.ts';
+import { useStrategyStore } from '../../store/strategyStore.ts';
 import { ScorePanel } from '../score/ScorePanel.tsx';
+import { VigridScorePanel } from '../score/VigridScorePanel.tsx';
+import { VigridObjectivesPanel } from './VigridObjectivesPanel.tsx';
 import { JobsPanel } from './JobsPanel.tsx';
 import { LayersPanel } from './LayersPanel.tsx';
 import { ObjectivesPanel } from './ObjectivesPanel.tsx';
@@ -11,10 +15,16 @@ const TABS = [
   { id: 'jobs', name: 'Jobs', render: () => <JobsPanel /> },
   { id: 'raids', name: 'Raids', render: () => <RaidsPanel /> },
   { id: 'parties', name: 'Partys', render: () => <PartiesPanel /> },
-  { id: 'objectives', name: 'Objet.', render: () => <ObjectivesPanel /> },
-  { id: 'score', name: 'Puntos', render: () => <ScorePanel /> },
+  { id: 'objectives', name: 'Objet.', render: () => <ByRules pillars={<ObjectivesPanel />} objectives={<VigridObjectivesPanel />} /> },
+  { id: 'score', name: 'Puntos', render: () => <ByRules pillars={<ScorePanel />} objectives={<VigridScorePanel />} /> },
   { id: 'layers', name: 'Capas', render: () => <LayersPanel /> },
 ] as const;
+
+/** Vale of Clash puntúa por pilares; Vigrid, por objetivos (cuerno y jefes). */
+function ByRules({ pillars, objectives }: { pillars: React.ReactNode; objectives: React.ReactNode }) {
+  const modeId = useStrategyStore((s) => s.strategy.modeId);
+  return <>{modeById(modeId)?.objectives ? objectives : pillars}</>;
+}
 
 /** Panel derecho con pestañas. */
 export function RightPanel() {

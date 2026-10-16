@@ -4,7 +4,8 @@ import { round4 } from '../../lib/geometry.ts';
 import { zoneOf } from '../../lib/numpad.ts';
 import { useEditorStore, type EditorTool } from '../../store/editorStore.ts';
 import { useMapStore } from '../../store/mapStore.ts';
-import type { MarkerKind, PlazaKind, PolygonKind, Side } from '../../types/index.ts';
+import { ELEMENT_LOOKS } from '../../config/objectiveKinds.ts';
+import type { Element, MarkerKind, PlazaKind, PolygonKind, Side } from '../../types/index.ts';
 import { PublishButton } from '../admin/PublishButton.tsx';
 import { download, exportGeoJson } from './exportMap.ts';
 import { findPolygon, KIND_LABELS, MARKER_LABELS, polygonToPlaza, removePolygon, ringsOf, setPolygonKind, type EditableKind } from './geometryOps.ts';
@@ -150,6 +151,14 @@ export function EditorPanel() {
                 <select className={input} value={marker.tier ?? ''} onChange={(e) => change((m) => (m.markers.find((k) => k.id === marker.id)!.tier = e.target.value || undefined))}>
                   <option value="">Sin definir</option>
                   {(modeById(map.modeId)?.scoring?.tiers ?? []).map((t) => <option key={t.id} value={t.id}>{t.id}</option>)}
+                </select>
+              </Field>
+            )}
+            {marker.kind === 'element-lord' && (
+              <Field label="Elemento">
+                <select className={input} value={marker.element ?? ''} onChange={(e) => change((m) => (m.markers.find((k) => k.id === marker.id)!.element = (e.target.value || undefined) as Element | undefined))}>
+                  <option value="">Sin definir</option>
+                  {Object.entries(ELEMENT_LOOKS).map(([k, el]) => <option key={k} value={k}>{el.name}</option>)}
                 </select>
               </Field>
             )}

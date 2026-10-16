@@ -26,6 +26,8 @@ export function newStrategy(modeId: string, mapId: string): Strategy {
     name: 'Estrategia sin título',
     modeId,
     mapId,
+    // Un mapa de un solo campo (Ruinscape) ya define el campo de la estrategia.
+    ...(maps[mapId]?.field === 'sub' ? { field: 'sub' as const } : {}),
     flipped: false,
     allySide: 'green',
     roster: [],

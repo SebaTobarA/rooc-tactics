@@ -2,6 +2,7 @@ import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { mulberry32, scatterClouds, scatterForest, wallBlocks } from '../../../lib/forest.ts';
+import { pointInRing } from '../../../lib/geometry.ts';
 import type { Projection3 } from '../../../lib/projection.ts';
 import type { MapConfig, Polygon, Vec2 } from '../../../types/index.ts';
 import { buildGroundTexture } from './groundTexture.ts';
@@ -95,8 +96,11 @@ interface Props {
  */
 export const MapMeshes = memo(function MapMeshes({ map, proj }: Props) {
   const { geometry: g, style } = map;
+  const terrain = style.terrain ?? 'forest';
+  // Cañón y ruinas: sin árboles; el borde es un farallón de roca o un muro de piedra alrededor del contorno.
+  const rimHeight = terrain === 'canyon' ? 4.6 : 3;
 
-  const trees = useMemo(() => scatterForest(g, map.aspect, 46), [g, map.aspect]);
+  const trees = useMemo(() => (terrain === 'forest' ? scatterForest(g, map.aspect, 46) : []), [g, map.aspect, terrain]);
   const ground = useMemo(() => buildGroundTexture(map, trees), [map, trees]);
   useEffect(() => () => ground.dispose(), [ground]);
 
@@ -105,8 +109,15 @@ export const MapMeshes = memo(function MapMeshes({ map, proj }: Props) {
     const solid = (p: Polygon) =>
       new THREE.ExtrudeGeometry(toShape(p.points, p.holes ?? [], proj), { depth: Math.max(0.2, p.height * HEIGHT_UNIT), bevelEnabled: true, bevelSize: 0.3, bevelThickness: 0.3, bevelSegments: 1 });
     const rocks = [...g.obstacles.filter((o) => o.kind !== 'forest'), ...g.decor].map((p) => ({ id: p.id, kind: p.kind, geometry: solid(p) }));
+    let rim: THREE.ExtrudeGeometry | null = null;
+    if (terrain !== 'forest') {
+      const m = 0.1;
+      const outer = [{ x: -m, y: -m }, { x: 1 + m, y: -m }, { x: 1 + m, y: 1 + m }, { x: -m, y: 1 + m }];
+      rim = new THREE.ExtrudeGeometry(toShape(outer, [[...g.bounds].reverse()], proj), { depth: SLAB + rimHeight, bevelEnabled: true, bevelSize: 0.4, bevelThickness: 0.4, bevelSegments: 1 });
+    }
     return {
       slab,
+      rim,
       rocks,
       pine: pineGeometry(),
       round: roundTreeGeometry(),
@@ -114,7 +125,7 @@ export const MapMeshes = memo(function MapMeshes({ map, proj }: Props) {
       puff: new THREE.IcosahedronGeometry(1, 2),
       bush: new THREE.IcosahedronGeometry(1, 0),
     };
-  }, [g, proj]);
+  }, [g, proj, terrain, rimHeight]);
 
   const instances = useMemo(() => {
     const tones = style.canopy.map((c) => new THREE.Color(c));
@@ -135,10 +146,21 @@ export const MapMeshes = memo(function MapMeshes({ map, proj }: Props) {
       }
     }
 
-    // Muros de ruinas a lo largo de los brazos de las espirales (los agujeros de lo transitable).
+    // Rocas sueltas sobre el farallón del borde (cañón y ruinas).
+    if (terrain !== 'forest') {
+      for (let i = 0; i < 520; i++) {
+        const pos = { x: -0.09 + rand() * 1.18, y: -0.09 + rand() * 1.18 };
+        if (pointInRing(pos, g.bounds)) continue;
+        const [x, z] = proj.toGround(pos);
+        const b = 0.6 + rand() * 1.4;
+        bushes.push({ position: [x, rimHeight + b * 0.2, z], rotationY: rand() * 6, scale: [b * 1.4, b * 0.8, b * 1.2], color: tones[Math.floor(rand() * tones.length)].clone().offsetHSL(0, 0, (rand() - 0.5) * 0.1) });
+      }
+    }
+
+    // Muros de ruinas a lo largo de los brazos de las espirales (los agujeros de lo transitable), solo en el bosque.
     const stone = new THREE.Color(style.wall);
     const walls: Instance[] = [];
-    for (const ring of g.walkable.flatMap((p) => p.holes ?? [])) {
+    for (const ring of terrain === 'forest' ? g.walkable.flatMap((p) => p.holes ?? []) : []) {
       for (const b of wallBlocks(ring, map.aspect, 0.0135, rand)) {
         const [x, z] = proj.toGround(b.pos);
         const tall = b.seed > 0.86;
@@ -152,14 +174,14 @@ export const MapMeshes = memo(function MapMeshes({ map, proj }: Props) {
     }
 
     const white = new THREE.Color(style.cloud);
-    const clouds: Instance[] = scatterClouds(g.bounds, map.aspect).map((c) => {
+    const clouds: Instance[] = (terrain === 'forest' ? scatterClouds(g.bounds, map.aspect) : []).map((c) => {
       const [x, z] = proj.toGround(c.pos);
       const r = proj.len(c.radius);
       // Bajas y achatadas: rodean la maqueta sin tapar el mapa.
       return { position: [x, -2.6 + c.seed * 1.6, z], rotationY: c.seed * 6, scale: [r * 0.66, r * (0.24 + c.seed * 0.12), r * 0.66], color: white.clone().offsetHSL(0, 0, -c.seed * 0.05) };
     });
     return { pines, rounds, bushes, walls, clouds };
-  }, [trees, g, map.aspect, proj, style]);
+  }, [trees, g, map.aspect, proj, style, terrain, rimHeight]);
 
   return (
     <group>
@@ -171,9 +193,14 @@ export const MapMeshes = memo(function MapMeshes({ map, proj }: Props) {
         <planeGeometry args={[proj.w, proj.d]} />
         <meshLambertMaterial map={ground} transparent alphaTest={0.5} />
       </mesh>
+      {geo.rim && (
+        <mesh geometry={geo.rim} rotation-x={FLAT} position-y={-SLAB}>
+          <meshLambertMaterial color={style.forest} flatShading />
+        </mesh>
+      )}
       {geo.rocks.map((r) => (
         <mesh key={r.id} geometry={r.geometry} rotation-x={FLAT}>
-          <meshLambertMaterial color={r.kind === 'rock' ? style.rock : style.plazaStroke} flatShading />
+          <meshLambertMaterial color={r.kind === 'rock' ? style.rock : terrain === 'ruins' ? style.wall : style.plazaStroke} flatShading />
         </mesh>
       ))}
       <Instances geometry={geo.pine} items={instances.pines} />

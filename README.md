@@ -1,6 +1,6 @@
 # ROOC Tactics
 
-Planificador de estrategias para los eventos de guild de Ragnarok Origin Classic. El MVP cubre Guild League → Vale of Clash.
+Planificador de estrategias para los eventos de guild de Ragnarok Origin Classic. Cubre Guild League → Vale of Clash y Vigrid Avenge.
 
 ## Uso en local
 
@@ -18,6 +18,7 @@ Abre `http://localhost:5173/rooc-tactics/`.
 | `npm run dev` | Servidor de desarrollo |
 | `npm run build` | Revisa tipos y compila a `dist/` |
 | `npm run generate:map` | Regenera `src/config/maps/vale-of-clash.geo.json` desde `assets-src/` y deja vistas previas en `scripts/out/` |
+| `npm run generate:vigrid` | Regenera la geometría y los marcadores de Vigrid Field y Ruinscape desde sus minimapas en `assets-src/` (pisa lo publicado desde la web) |
 
 ## Agregar un mapa
 
@@ -26,6 +27,15 @@ Abre `http://localhost:5173/rooc-tactics/`.
 3. Ejecuta `npm run generate:map` y revisa `scripts/out/<id>-preview.png`.
 4. Crea `src/config/maps/<id>.ts` (y su `.style.ts`), regístralo en `src/config/maps/index.ts` y agrégalo a `maps` en la config del modo.
 5. Retoca con el botón «Editor de mapa» y reemplaza los archivos que exporta.
+
+## Vigrid Avenge
+
+Se elige en la portada como un mapa de Guild League, pero tiene reglas propias (modo interno `vigrid` en `src/config/modes/vigrid.ts`): no hay pilares, se puntúa por el cuerno, los jefes y las kills, con meta de 800.000.
+
+- Cada campo es un mapa: **Vigrid Field** (`vigrid`, 40 jugadores) y **Ruinscape / Fellands** (`vigrid-fellands`, méritos para el Comandante). Al elegir el campo se abre su mapa con la misma guild.
+- Los valores de puntos, mecánicas y pendientes viven en `src/config/modes/vigrid.ts`; el simulador, la pestaña Objet. y el asistente IA los leen de ahí.
+- Íconos y estados de los objetivos (cuerno, Fenrir, Señores Elementales, altares, Draculas, Nidhogg…): `src/config/objectiveKinds.ts`.
+- Por paso se anota quién tiene el cuerno y cuántos segundos; los jefes se marcan «Último golpe: Verde/Roja» y los altares, «Corrompido».
 
 ## Pendientes marcados como TODO
 

@@ -1,5 +1,6 @@
 import { jobById, jobs } from '../../config/jobs.ts';
-import { FIELD_LABELS, fieldScoring, modeById } from '../../config/modes/index.ts';
+import { FIELD_LABELS, fieldLabel, fieldScoring, modeById, objectiveRules } from '../../config/modes/index.ts';
+import { ELEMENT_LOOKS, lookOf } from '../../config/objectiveKinds.ts';
 import { roles } from '../../config/roles.ts';
 import { clamp01, round4 } from '../../lib/geometry.ts';
 import { newId } from '../../lib/id.ts';
@@ -7,7 +8,7 @@ import { zoneCenters, zoneOf } from '../../lib/numpad.ts';
 import { route, snapToWalkable } from '../../lib/walk.ts';
 import { tierPoints, useScoringStore } from '../../store/scoringStore.ts';
 import { emptyParty, emptyStep } from '../../store/strategyStore.ts';
-import type { Drawing, MapConfig, ObjectiveStatus, Party, Player, Raid, Step, Strategy, Token, Vec2 } from '../../types/index.ts';
+import type { Drawing, MapConfig, ObjectiveRules, ObjectiveStatus, Party, Player, Raid, Side, Step, Strategy, Token, Vec2 } from '../../types/index.ts';
 import { findJob } from '../party/partyActions.ts';
 
 /**
@@ -32,6 +33,8 @@ interface AiPlan {
     pings?: { at: Place; color?: string }[];
     objectives?: { marker: string; status?: ObjectiveStatus; tier?: string; timerSeconds?: number; ticks?: number }[];
     fiestaTempo?: boolean;
+    /** Vigrid: quién tiene el cuerno en el paso y cuántos segundos. */
+    horn?: { holder: Side | null; seconds?: number };
   }[];
 }
 
@@ -56,9 +59,59 @@ const EXAMPLE = `{
   ]
 }`;
 
+const VIGRID_EXAMPLE = `{
+  "name": "Valkyrie y rotación de altares",
+  "raids": [{ "number": 1, "name": "Escolta", "parties": [1, 2, 3, 4] }, { "number": 2, "name": "Cazadores", "parties": [5, 6, 7, 8] }],
+  "steps": [
+    {
+      "name": "0:00 Valkyrie",
+      "note": "Las dos raids al centro; el último golpe lo da la party 1.",
+      "groups": [{ "type": "raid", "number": 1, "at": "horn" }, { "type": "raid", "number": 2, "at": "lord-earth" }],
+      "arrows": [{ "from": "entry-1", "to": "horn", "color": "#34c759" }],
+      "objectives": [{ "marker": "horn", "status": "active" }, { "marker": "lord-earth", "status": "active" }]
+    },
+    {
+      "name": "1:30 Portador al altar 2",
+      "note": "Escolta con el portador; cazadores al Señor de Tierra.",
+      "horn": { "holder": "green", "seconds": 60 },
+      "groups": [{ "type": "raid", "number": 1, "at": "altar-2" }, { "type": "raid", "number": 2, "at": "lord-earth" }],
+      "objectives": [{ "marker": "horn", "status": "captured-green" }, { "marker": "lord-earth", "status": "captured-green" }]
+    }
+  ]
+}`;
+
+/** Reglas de un campo por objetivos (Vigrid) para el encargo. */
+function objectiveRulesText(rules: ObjectiveRules, strategy: Strategy, map: MapConfig): string {
+  const fmt = (n: number) => n.toLocaleString('es');
+  const other = rules.field === 'main' ? 'sub' : 'main';
+  const otherRules = objectiveRules(strategy.modeId, other);
+  const lines = [
+    rules.goal != null
+      ? `- Esta estrategia es para el ${rules.gameName}: aquí se gana la partida. Meta: ${fmt(rules.goal)} puntos.`
+      : `- Esta estrategia es para el ${rules.gameName}: NO gana la partida. Se acumulan ${rules.unit} para el Comandante.`,
+    ...(rules.victory ?? []).map((v) => `- ${v}`),
+    rules.horn ? `- Cuerno de Heimdall: ${fmt(rules.horn.pointsPerTick)} puntos cada ${rules.horn.tickSeconds} s mientras tu guild lo tenga (${fmt((rules.horn.pointsPerTick / rules.horn.tickSeconds) * 60)} por minuto) y ${fmt(rules.horn.endBonus)} si lo tienes al terminar.` : '',
+    ...rules.sources.map((s) => `- ${s.name}${s.points != null ? `: ${fmt(s.points)} ${rules.unit === 'puntos' ? 'puntos' : rules.unit} al último golpe` : ' (valor sin confirmar)'}${s.reward ? `; da ${s.reward}` : ''}${s.spawn ? `. Aparece ${s.spawn}` : ''}.`),
+    rules.killPoints != null ? `- Cada kill de jugador vale ${fmt(rules.killPoints)}; las muertes propias restan eficiencia.` : '',
+    rules.fiesta ? `- Fiesta Tempo (últimos ${Math.round(rules.fiesta.triggerSecondsLeft / 60)} min): ${rules.fiesta.applies} Marca esos pasos con "fiestaTempo": true.` : '',
+    ...rules.mechanics.map((m) => `- ${m}`),
+    ...(rules.commanderShop ?? []).map((k) => `- Habilidad de Comandante ${k.name} (${fmt(k.cost)} ${rules.unit}): ${k.durationSeconds} s, ${k.effect}; enfriamiento ${k.cooldownSeconds} s. ${k.advice}`),
+    rules.field === 'main' && otherRules?.commanderShop
+      ? `- En paralelo, el resto de la guild juega ${otherRules.gameName} y junta ${otherRules.unit}; con ellos el Comandante activa en este campo: ${otherRules.commanderShop.map((k) => `${k.name} (${k.durationSeconds} s, ${k.effect}; enfriamiento ${k.cooldownSeconds} s)`).join('; ')}. Indica en las notas cuándo usarlas.`
+      : '',
+    rules.field === 'sub' ? `- La victoria se decide en el ${fieldLabel(strategy.modeId, 'main')} (40 jugadores); este campo es para el resto de la guild.` : '',
+    rules.goal != null ? '- Optimiza: asegurar la Fallen Valkyrie, proteger al portador rotando por altares activos (pensando en las oleadas de corrupción), tomar Señores Elementales y Draculas sin descuidar al portador, y controlar Fenrir. Las kills sueltas rinden poco.' : '- Optimiza: juntar frutas rápido y seguro, entregarlas sin que te las roben y llegar cuanto antes a cada habilidad de Comandante.',
+    rules.pendingRules?.length ? `- Sin confirmar (no lo des por hecho): ${rules.pendingRules.join(' ')}` : '',
+  ];
+  const elements = map.markers.filter((m) => m.kind === 'element-lord' && m.element).map((m) => `${m.label}: ${ELEMENT_LOOKS[m.element!].buff}`);
+  if (elements.length) lines.push(`- Bufos elementales (60 s, toda la guild): ${elements.join('; ')}.`);
+  return lines.filter(Boolean).join('\n');
+}
+
 /** Instrucciones completas para pegar en el chat de Claude. */
 export function buildPrompt(request: string, strategy: Strategy, map: MapConfig): string {
   const mode = modeById(strategy.modeId);
+  const objRules = objectiveRules(strategy.modeId, strategy.field ?? map.field);
   const scoring = mode?.scoring;
   const side = strategy.allySide === 'green' ? 'Verde' : 'Roja';
   const markers = map.markers
@@ -96,20 +149,20 @@ export function buildPrompt(request: string, strategy: Strategy, map: MapConfig)
     .join('\n');
   const raids = strategy.raids.length ? strategy.raids.map((r) => `- Raid ${r.number} "${r.name}": partys ${r.partyIds.map((id) => strategy.parties.find((p) => p.id === id)?.number).join(', ') || 'ninguna'}`).join('\n') : 'No hay raids definidas todavía.';
 
-  return `Eres el estratega asistente de una guild de Ragnarok Origin Classic (ROOC). Ayúdame a planificar una partida de ${mode?.name ?? 'GvG'} en el mapa ${map.name}${scoring?.sub ? `, ${FIELD_LABELS[field]}` : ''}, usando el planificador web ROOC Tactics.
+  return `Eres el estratega asistente de una guild de Ragnarok Origin Classic (ROOC). Ayúdame a planificar una partida de ${mode?.name ?? 'GvG'} en el mapa ${map.name}${scoring?.sub ? `, ${FIELD_LABELS[field]}` : objRules ? `, ${objRules.gameName}` : ''}, usando el planificador web ROOC Tactics.
 
 ## Lo que quiero
 ${request.trim() || '(Propón una estrategia de apertura razonable y pregúntame lo que necesites.)'}
 
 ## Campo y reglas
-${fieldRules}
+${objRules ? objectiveRulesText(objRules, strategy, map) : `${fieldRules}
 - Los pilares aparecen durante la partida y tienen tier. Su sello se rompe con daño puro; al romperlo queda una zona de captura que suma ${unit} por tick a la guild con más jugadores dentro, hasta un máximo de ticks; luego el pilar se agota.
-- ${unit[0].toUpperCase() + unit.slice(1)} por tier en este campo: ${tiers || 'sin datos'}. Si un valor dice "sin dato", no lo inventes.${fiestaRule}${pending}
+- ${unit[0].toUpperCase() + unit.slice(1)} por tier en este campo: ${tiers || 'sin datos'}. Si un valor dice "sin dato", no lo inventes.${fiestaRule}${pending}`}
 - Una party tiene máximo ${mode?.partySize ?? 5} jugadores; una raid, máximo ${mode?.raidMaxParties ?? 8} partys.
 
 ## Mapa
-Coordenadas normalizadas: x de 0 (izquierda) a 1 (derecha), y de 0 (arriba) a 1 (abajo). El mapa se divide en 9 zonas como un pad numérico: 7 8 9 arriba, 4 5 6 al medio, 1 2 3 abajo. La zona 5 contiene el pilar central.
-Mi guild es la ${side}. Marcadores (usa su id entre comillas para ubicar cosas):
+Coordenadas normalizadas: x de 0 (izquierda) a 1 (derecha), y de 0 (arriba) a 1 (abajo). El mapa se divide en 9 zonas como un pad numérico: 7 8 9 arriba, 4 5 6 al medio, 1 2 3 abajo. La zona 5 es el centro del mapa.
+${objRules ? `En el tablero mi guild se marca como la ${side} (en el juego la entrada es al azar: elige la entrada que te diga o asume una y dilo).` : `Mi guild es la ${side}.`} Marcadores (usa su id entre comillas para ubicar cosas):
 ${markers}
 
 ## Mi guild ahora
@@ -126,7 +179,7 @@ Roles: ${roles.map((r) => r.name).join(', ')}.
 2. Después entrega UN solo bloque de código \`\`\`json con el plan, para pegarlo en ROOC Tactics. Formato:
 
 \`\`\`json
-${EXAMPLE}
+${objRules ? VIGRID_EXAMPLE : EXAMPLE}
 \`\`\`
 
 Reglas del JSON:
@@ -134,7 +187,12 @@ Reglas del JSON:
 - "groups" ubica raids o partys por su número. Usa {"type": "raid"} cuando la raid se mueve unida y {"type": "party"} cuando sus partys actúan por separado. No pongas la raid y sus partys en el mismo paso.
 - Cada paso debe traer la posición de todos los grupos que siguen en juego; así la web anima el movimiento entre pasos.
 - "raids" y "parties" son opcionales: inclúyelos solo si propones cambiar la formación o la composición. "jobs" rellena los slots vacíos de esa party; no reemplaza jugadores que ya están.
-- Estados de un objetivo: pending (por aparecer), active (sello intacto), captured-green / captured-red (en captura), destroyed (agotado). Puedes agregar "ticks" al objetivo si la captura no es completa. Tiers: ${scoring?.tiers.map((t) => t.id).join(', ') ?? 'B, A, S'}.
+${
+    objRules
+      ? `- Objetivos (jefes, Draculas, Nidhogg): pending (por aparecer), active (vivo), captured-green / captured-red (último golpe de esa guild), destroyed (muerto por otro). Altares: active (activo) o destroyed (corrompido). Un jefe que reaparece (Dracula) se vuelve a marcar active antes del siguiente último golpe.
+- "horn" en un paso: {"holder": "green" | "red" | null, "seconds": segundos que lo sostiene en ese paso}. Así la web suma los ${objRules.horn ? `${objRules.horn.pointsPerTick.toLocaleString('es')} puntos cada ${objRules.horn.tickSeconds} s` : 'puntos'}.`
+      : `- Estados de un objetivo: pending (por aparecer), active (sello intacto), captured-green / captured-red (en captura), destroyed (agotado). Puedes agregar "ticks" al objetivo si la captura no es completa. Tiers: ${scoring?.tiers.map((t) => t.id).join(', ') ?? 'B, A, S'}.`
+  }
 - Colores sugeridos: ${Object.entries(COLORS).map(([k, v]) => `${k} ${v}`).join(', ')}.
 - Notas cortas, pensadas para leerse en voz durante la partida.`;
 }
@@ -295,10 +353,15 @@ export function applyPlan(plan: AiPlan, base: Strategy, map: MapConfig, replace:
     }
     step.drawings = drawings;
 
+    if (s.horn && typeof s.horn === 'object') {
+      const holder = s.horn.holder === 'green' || s.horn.holder === 'red' ? s.horn.holder : null;
+      step.horn = { holder, ...(Number.isFinite(s.horn.seconds) ? { seconds: Math.max(0, Math.round(s.horn.seconds!)) } : {}) };
+    }
     for (const o of s.objectives ?? []) {
-      const marker = map.markers.find((m) => m.id === o.marker && (m.kind === 'central-pillar' || m.kind === 'pillar-slot'));
+      // Pilares en Vale of Clash; jefes, altares y Nidhogg en Vigrid.
+      const marker = map.markers.find((m) => m.id === o.marker && (m.kind === 'central-pillar' || m.kind === 'pillar-slot' || !!lookOf(m)?.statuses));
       if (!marker) {
-        warnings.push(`${where}: "${o.marker}" no es un pilar del mapa.`);
+        warnings.push(`${where}: "${o.marker}" no es un objetivo del mapa.`);
         continue;
       }
       step.objectives.push({

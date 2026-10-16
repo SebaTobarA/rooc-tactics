@@ -72,6 +72,62 @@ export interface ModeScoring {
   matchDurationSeconds?: number | null;
 }
 
+/**
+ * Reglas por objetivos (Vigrid): el puntaje sale de jefes, del cuerno y de las kills, no de pilares.
+ * Cada campo tiene las suyas.
+ */
+export interface ObjectiveSource {
+  /** Tipo de marcador que da estos puntos al último golpe. */
+  kind: MarkerKind;
+  name: string;
+  /** Puntos al último golpe; null = sin confirmar. */
+  points: number | null;
+  /** Lo que entrega además de los puntos. */
+  reward?: string;
+  /** Dónde y cuándo aparece. */
+  spawn?: string;
+}
+
+export interface CommanderSkillCost {
+  id: string;
+  name: string;
+  cost: number;
+  effect: string;
+  durationSeconds: number;
+  cooldownSeconds: number;
+  advice: string;
+}
+
+export interface ObjectiveRules {
+  field: FieldId;
+  label: string;
+  /** Nombre en inglés del juego. */
+  gameName: string;
+  unit: string;
+  /** Meta que gana la partida; null si el campo no gana. */
+  goal: number | null;
+  killPoints: number | null;
+  sources: ObjectiveSource[];
+  /** El cuerno de Heimdall: puntos por tick mientras se tiene y bono al terminar con él. */
+  horn?: { pointsPerTick: number; tickSeconds: number; endBonus: number };
+  /** Fiesta Tempo: últimos minutos sin ganador; multiplica monstruos y cuerno. */
+  fiesta?: { triggerSecondsLeft: number; multiplier: number; applies: string };
+  /** Habilidades de Comandante que se compran con lo acumulado en este campo. */
+  commanderShop?: CommanderSkillCost[];
+  /** Mecánicas que el asistente IA y el tablero deben considerar. */
+  mechanics: string[];
+  /** Desempate y otras reglas de victoria. */
+  victory?: string[];
+  pendingRules?: string[];
+}
+
+export interface FieldMap {
+  label: string;
+  gameName: string;
+  mapId: string;
+  description: string;
+}
+
 export interface ModeConfig {
   id: string;
   name: string;
@@ -85,6 +141,12 @@ export interface ModeConfig {
   /** Formaciones sugeridas: jugadores por raid (ej.: [20, 20] = 2 raids de 20). */
   raidPresets?: { name: string; raids: number[] }[];
   scoring?: ModeScoring;
+  /** Reglas por objetivos (Vigrid), en vez de pilares. */
+  objectives?: Partial<Record<FieldId, ObjectiveRules>>;
+  /** Cada campo se juega en un mapa propio (Vigrid Field y Ruinscape). */
+  fieldMaps?: Record<FieldId, FieldMap>;
+  /** Conjunto de reglas interno: no aparece como modo en la portada (sus mapas se listan en otro modo). */
+  hidden?: boolean;
 }
 
 // ---------- Geometría del mapa ----------
@@ -121,7 +183,26 @@ export interface MapGeometry {
 
 // ---------- Config del mapa ----------
 
-export type MarkerKind = 'central-pillar' | 'respawn' | 'pillar-slot' | 'point-green' | 'point-purple';
+export type MarkerKind =
+  | 'central-pillar'
+  | 'respawn'
+  | 'pillar-slot'
+  | 'point-green'
+  | 'point-purple'
+  // Vigrid: entradas (esquina al azar por guild), reaparición azul y objetivos.
+  | 'entry'
+  | 'respawn-point'
+  | 'horn'
+  | 'fenrir'
+  | 'element-lord'
+  | 'altar'
+  | 'dracula'
+  // Ruinscape (Fellands): entrega de frutas, Nidhogg y árboles.
+  | 'fruit-submit'
+  | 'nidhogg'
+  | 'fruit-tree';
+
+export type Element = 'water' | 'wind' | 'earth' | 'fire';
 
 export interface Marker {
   id: string;
@@ -131,6 +212,8 @@ export interface Marker {
   side?: Side;
   /** Tier del pilar en esta ubicación (solo pilares). */
   tier?: TierId;
+  /** Elemento de un Señor Elemental. */
+  element?: Element;
   /** false = nombre/función "por confirmar". */
   confirmed: boolean;
 }
@@ -155,6 +238,11 @@ export interface MapStyle {
   wall: string;
   /** Nubes del borde del mapa. */
   cloud: string;
+  /**
+   * Tipo de terreno no transitable: bosque con árboles (Vale of Clash), cañón con crestas de roca (Vigrid)
+   * o muros de ruinas (Fellands). Sin definir = bosque.
+   */
+  terrain?: 'forest' | 'canyon' | 'ruins';
   /** Tonos de las copas de los árboles. */
   canopy: string[];
   canopyShade: string;
@@ -195,6 +283,8 @@ export interface MapConfig {
   markers: Marker[];
   numpad: NumpadGrid;
   style: MapStyle;
+  /** Mapa de un solo campo (en Vigrid cada campo tiene su mapa). */
+  field?: FieldId;
   reference?: MapReference;
 }
 
@@ -247,6 +337,8 @@ export interface Step {
   objectives: ObjectiveState[];
   /** Fiesta Tempo activa en este paso (duplica la captura donde aplica). */
   fiestaTempo?: boolean;
+  /** Vigrid: quién tiene el cuerno en este paso y cuántos segundos lo sostiene. */
+  horn?: { holder: Side | null; seconds?: number };
 }
 
 export interface Player {

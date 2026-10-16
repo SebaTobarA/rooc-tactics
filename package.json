@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "generate:map": "tsx scripts/generate-map.ts",
+    "generate:vigrid": "tsx scripts/generate-vigrid.ts",
     "test": "vitest run"
   },
   "dependencies": {

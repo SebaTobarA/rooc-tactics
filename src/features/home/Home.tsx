@@ -23,7 +23,7 @@ export function Home() {
       <h2 className="mb-1 text-2xl font-semibold">Elige un modo y un mapa</h2>
       <p className="mb-6 text-slate-500 dark:text-slate-400">Planificador de estrategias para los eventos de guild de Ragnarok Origin Classic.</p>
       <div className="grid gap-4 md:grid-cols-3">
-        {modes.map((mode) => (
+        {modes.filter((mode) => !mode.hidden).map((mode) => (
           <section key={mode.id} className={`rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 ${mode.enabled ? '' : 'opacity-60'}`}>
             <div className="mb-1 flex items-center justify-between gap-2">
               <h3 className="text-lg font-semibold">{mode.name}</h3>

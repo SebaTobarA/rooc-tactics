@@ -1,5 +1,6 @@
 import type { MapConfig } from '../../types/index.ts';
 import { valeOfClash } from './vale-of-clash.ts';
+import { vigridFellands, vigridField } from './vigrid.ts';
 
 export interface MapSummary {
   id: string;
@@ -10,12 +11,13 @@ export interface MapSummary {
 /** Mapas con config completa. */
 export const maps: Record<string, MapConfig> = {
   [valeOfClash.id]: valeOfClash,
+  [vigridField.id]: vigridField,
+  [vigridFellands.id]: vigridFellands,
 };
 
 /** Catálogo para el selector, incluidos los mapas "Próximamente". */
 const upcoming: MapSummary[] = [
   { id: 'stellar-clash', name: 'Stellar Clash', enabled: false },
-  { id: 'guild-league-map-3', name: 'Tercer mapa (por definir)', enabled: false },
 ];
 
 export const mapSummary = (id: string): MapSummary =>

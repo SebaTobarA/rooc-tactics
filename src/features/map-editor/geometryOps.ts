@@ -20,6 +20,16 @@ export const MARKER_LABELS: Record<MarkerKind, string> = {
   'pillar-slot': 'Ubicación de pilar',
   'point-green': 'Punto verde',
   'point-purple': 'Punto morado',
+  entry: 'Entrada (Vigrid)',
+  'respawn-point': 'Respawn azul (Vigrid)',
+  horn: 'Cuerno · Fallen Valkyrie',
+  fenrir: 'Fenrir',
+  'element-lord': 'Señor Elemental',
+  altar: 'Altar',
+  dracula: 'Dracula (Undead Spirit)',
+  'fruit-submit': 'Entrega de frutas',
+  nidhogg: 'Nidhogg',
+  'fruit-tree': 'Árbol',
 };
 
 const LIST_FOR_KIND: Record<PolygonKind, Exclude<PolyList, 'bounds'>> = {

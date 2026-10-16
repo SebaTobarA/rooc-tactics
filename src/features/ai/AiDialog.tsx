@@ -80,7 +80,7 @@ export function AiDialog({ onClose }: { onClose: () => void }) {
             <button className={button} disabled={!reply.trim()} onClick={() => apply(false)}>Agregar pasos al final</button>
             <button className={button} disabled={!reply.trim()} onClick={() => apply(true)}>Reemplazar los pasos actuales</button>
           </div>
-          <p className="text-xs text-slate-500">Crea las raids, rellena slots vacíos de las partys y arma los pasos con fichas, flechas, zonas, textos y estado de los pilares. Para ajustar, sigue la conversación en Claude («mueve la raid 2 a zona 3») y vuelve a pegar.</p>
+          <p className="text-xs text-slate-500">Crea las raids, rellena slots vacíos de las partys y arma los pasos con fichas, flechas, zonas, textos y estado de los objetivos. Para ajustar, sigue la conversación en Claude («mueve la raid 2 a zona 3») y vuelve a pegar.</p>
         </section>
       </div>
     </div>
