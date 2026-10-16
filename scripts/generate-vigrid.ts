@@ -54,6 +54,9 @@ async function generate(source: VigridSource) {
   const sand = maskFrom(W, H, (x, y) => sample(x, y) === SAND);
   // Afuera = lo no transitable conectado con el borde de la imagen; adentro queda el contorno jugable.
   const outside = floodOutside(sand);
+  // En el juego los senderos son anchos: se adelgazan las crestas interiores, pero cada una conserva un núcleo
+  // para que los muros finos de las espirales no desaparezcan.
+  if (source.widen) widenPaths(sand, outside, source.widen);
   const walkMask = blur(sand, 2);
   // Bolsillos de arena encerrados por muros: no se llega a ellos, así que no cuentan como sendero.
   // Los objetivos (altares, entradas, jefes) tienen que quedar conectados: si el trazo de la espiral se cerró
@@ -154,6 +157,45 @@ async function generate(source: VigridSource) {
   console.log(`${source.id}: ${carved} pasos abiertos hacia objetivos encerrados; ${dropped} px de arena aislada descartados`);
   console.log(`${source.id}: aspecto ${aspect} | walkable ${walkable.length} (${verts(walkable)} v) | obstáculos ${obstacles.length} (${verts(obstacles)} v) | contorno ${bounds.length} v | ${markers.length} marcadores`);
   for (const m of markers) if (!walkAt(m.pos)) console.log(`  ¡${m.id} quedó fuera del sendero!`);
+}
+
+/**
+ * Ensancha lo transitable comiéndose el borde de cada cresta interior hasta `px` píxeles, sin dejarla más
+ * delgada que un núcleo de ~4 px de radio (los muros finos se afinan, no se borran).
+ */
+function widenPaths(sand: Mask, outside: Uint8Array, px: number): void {
+  const { w, h, data } = sand;
+  const n = w * h;
+  // Distancia (en píxeles, 4 vecinos) de cada píxel de roca a la arena más cercana.
+  const dist = new Int32Array(n).fill(-1);
+  const queue = new Int32Array(n);
+  let head = 0;
+  let tail = 0;
+  for (let i = 0; i < n; i++) if (data[i] > 0.5) (dist[i] = 0), (queue[tail++] = i);
+  while (head < tail) {
+    const i = queue[head++];
+    const x = i % w;
+    for (const j of [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, i >= w ? i - w : -1, i < n - w ? i + w : -1]) {
+      if (j >= 0 && dist[j] < 0) (dist[j] = dist[i] + 1), (queue[tail++] = j);
+    }
+  }
+  // Grosor local: la mayor distancia a la arena en una ventana alrededor de cada píxel. Así un muro fino que nace
+  // de una cresta gruesa se mide por sí mismo y no desaparece.
+  const R = 7;
+  const rowMax = new Int32Array(n);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let m = 0;
+    for (let k = Math.max(0, x - R); k <= Math.min(w - 1, x + R); k++) m = Math.max(m, dist[y * w + k]);
+    rowMax[y * w + x] = m;
+  }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x;
+    if (data[i] > 0.5 || outside[i]) continue;
+    let local = 0;
+    for (let k = Math.max(0, y - R); k <= Math.min(h - 1, y + R); k++) local = Math.max(local, rowMax[k * w + x]);
+    // Cada cresta conserva un núcleo de ~4 px de radio.
+    if (dist[i] <= Math.min(px, Math.max(0, local - 4))) data[i] = 1;
+  }
 }
 
 /** Píxeles transitables (> 0.5) conectados con el punto de partida. */

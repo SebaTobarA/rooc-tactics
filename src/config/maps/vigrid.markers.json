@@ -129,8 +129,8 @@
       "id": "respawn-2",
       "kind": "respawn-point",
       "pos": {
-        "x": 0.399,
-        "y": 0.367
+        "x": 0.3956,
+        "y": 0.3667
       },
       "label": "Respawn 2",
       "confirmed": true
@@ -309,8 +309,8 @@
       "id": "dracula-4",
       "kind": "dracula",
       "pos": {
-        "x": 0.781,
-        "y": 0.359
+        "x": 0.7873,
+        "y": 0.3634
       },
       "label": "Dracula 4",
       "confirmed": true
