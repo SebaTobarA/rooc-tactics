@@ -169,6 +169,8 @@ export interface Plaza {
   kind: PlazaKind;
   center: Vec2;
   radius: number;
+  /** Meseta elevada (unidades de altura de la geometría); el sendero que sale de ella baja en rampa. */
+  height?: number;
 }
 
 export interface MapGeometry {
@@ -179,6 +181,8 @@ export interface MapGeometry {
   water: Polygon[];
   decor: Polygon[];
   plazas: Plaza[];
+  /** Hasta dónde bajan las rampas de las mesetas: el camino llega al suelo al salir de un círculo de este radio (en radios de la meseta; 2,6 por defecto). */
+  rampReach?: number;
 }
 
 // ---------- Config del mapa ----------

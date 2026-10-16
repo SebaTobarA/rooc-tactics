@@ -48,3 +48,23 @@ describe('asistente IA en Vigrid', () => {
     }
   });
 });
+
+describe('relieve de Vigrid', () => {
+  it('los altares están en altura y se baja por un sendero en rampa hasta el suelo', async () => {
+    const { elevationAt } = await import('../../lib/elevation.ts');
+    const { route } = await import('../../lib/walk.ts');
+    const g = map.geometry;
+    const at = (id: string) => map.markers.find((m) => m.id === id)!.pos;
+    for (const altar of map.markers.filter((m) => m.kind === 'altar')) {
+      expect(elevationAt(g, 1, altar.pos)).toBeGreaterThan(2);
+      // Camino a pie desde la entrada: la altura sube sin saltos bruscos.
+      const path = route(at('entry-1'), altar.pos, g, 1);
+      const samples: number[] = [];
+      for (let i = 1; i < path.length; i++) for (let k = 0; k <= 20; k++) samples.push(elevationAt(g, 1, { x: path[i - 1].x + ((path[i].x - path[i - 1].x) * k) / 20, y: path[i - 1].y + ((path[i].y - path[i - 1].y) * k) / 20 }));
+      const jump = Math.max(...samples.slice(1).map((v, i) => Math.abs(v - samples[i])));
+      expect({ altar: altar.id, jump: Math.round(jump * 100) / 100 }).toEqual({ altar: altar.id, jump: expect.any(Number) });
+      expect(jump, altar.id).toBeLessThan(0.8);
+    }
+    expect(elevationAt(g, 1, at('entry-1'))).toBe(0);
+  });
+});

@@ -12,6 +12,7 @@ import { hitDrawing } from '../../board/hit.ts';
 import { stageHandle } from '../../board/stageHandle.ts';
 import { isDrawingTool, useToolController } from '../../board/useToolController.ts';
 import { useDisplayedStep } from '../../timeline/displayedStep.ts';
+import { elevationAt } from '../../../lib/elevation.ts';
 import { Drawings3D, Markers3D, Numpad3D, Tokens3D, TOKEN_Y, tokenSpriteSize } from './BoardObjects3D.tsx';
 import { MapMeshes } from './MapMeshes.tsx';
 
@@ -172,9 +173,17 @@ export default function Scene3D() {
     const ndc = new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
     const ray = new THREE.Raycaster();
     ray.setFromCamera(ndc, h.camera);
-    const hit = ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Vector3());
-    return hit ? proj.toNorm(hit.x, hit.z) : null;
-  }, [proj]);
+    // Con relieve: se corta el rayo a la altura del terreno en el punto anterior; dos vueltas bastan.
+    let level = 0;
+    let p: Vec2 | null = null;
+    for (let k = 0; k < 3; k++) {
+      const hit = ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -level), new THREE.Vector3());
+      if (!hit) return p;
+      p = proj.toNorm(hit.x, hit.z);
+      level = elevationAt(map.geometry, map.aspect, p);
+    }
+    return p;
+  }, [proj, map]);
 
   /** Token cuyo sprite está bajo el puntero (distancia en pantalla, según el tamaño aparente del sprite). */
   const tokenAt = (clientX: number, clientY: number): string | null => {
@@ -189,8 +198,9 @@ export default function Scene3D() {
     for (const t of step.tokens) {
       if (!(t.team === 'ally' ? layers.allies : layers.enemies)) continue;
       const [x, z] = proj.toGround(t.pos);
-      const center = toScreen(new THREE.Vector3(x, TOKEN_Y + 0.5, z));
-      const edge = toScreen(new THREE.Vector3(x, TOKEN_Y + 0.5 + tokenSpriteSize(t) * 0.27, z));
+      const lift = elevationAt(map.geometry, map.aspect, t.pos);
+      const center = toScreen(new THREE.Vector3(x, TOKEN_Y + 0.5 + lift, z));
+      const edge = toScreen(new THREE.Vector3(x, TOKEN_Y + 0.5 + lift + tokenSpriteSize(t) * 0.27, z));
       if (!center || !edge) continue;
       const radius = Math.max(14, Math.hypot(edge.x - center.x, edge.y - center.y));
       const dist = Math.hypot(center.x - clientX, center.y - clientY);
@@ -315,7 +325,7 @@ export default function Scene3D() {
         {layers.map && <MapMeshes map={map} proj={proj} />}
         {layers.grid && <Numpad3D map={map} proj={proj} azimuth={azimuth} />}
         {layers.objectives && <Markers3D map={map} proj={proj} objectives={step.objectives} labelHeight={0.7} />}
-        <Drawings3D drawings={drawings} draft={controller.draft} proj={proj} aspect={map.aspect} selection={selection} />
+        <Drawings3D drawings={drawings} draft={controller.draft} proj={proj} map={map} selection={selection} />
         <Tokens3D tokens={tokens} proj={proj} map={map} parties={parties} raids={raids} allySide={allySide} selection={selection} />
       </Canvas>
       <p className="pointer-events-none absolute left-1/2 top-12 -translate-x-1/2 rounded-md bg-slate-900/75 px-3 py-1 text-xs text-slate-100 shadow">

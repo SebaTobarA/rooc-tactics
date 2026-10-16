@@ -129,7 +129,7 @@ async function generate(source: VigridSource) {
     }
     return best;
   };
-  const plazas: Plaza[] = source.plazas.map((p) => ({ id: p.id, kind: p.kind, center: norm(p.at), radius: r4(p.r / crop.w) }));
+  const plazas: Plaza[] = source.plazas.map((p) => ({ id: p.id, kind: p.kind, center: norm(p.at), radius: r4(p.r / crop.w), ...(p.height ? { height: p.height } : {}) }));
   const markers: Marker[] = source.markers.map((m) => ({
     id: m.id,
     kind: m.kind,
@@ -139,7 +139,7 @@ async function generate(source: VigridSource) {
     confirmed: m.confirmed ?? true,
   }));
 
-  const geometry: MapGeometry = { version: 1, bounds, walkable, obstacles, water: [], decor: [], plazas };
+  const geometry: MapGeometry = { version: 1, bounds, walkable, obstacles, water: [], decor: [], plazas, ...(source.rampReach ? { rampReach: source.rampReach } : {}) };
   writeFileSync(`src/config/maps/${source.id}.geo.json`, JSON.stringify(geometry) + '\n');
   writeFileSync(`src/config/maps/${source.id}.markers.json`, JSON.stringify({ aspect, numpad: { cols: [0.3333, 0.6667], rows: [0.3333, 0.6667] }, markers }, null, 2) + '\n');
 

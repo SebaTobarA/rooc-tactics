@@ -1,4 +1,4 @@
-import type { Vec2 } from '../types/index.ts';
+import type { MapGeometry, Vec2 } from '../types/index.ts';
 import type { Projection } from './projection.ts';
 
 export const round4 = (v: number) => Math.round(v * 10000) / 10000;
@@ -50,3 +50,28 @@ export function pointInRing(p: Vec2, ring: Vec2[]): boolean {
 /** Punto dentro de un polígono con agujeros. */
 export const pointInPolygon = (p: Vec2, poly: { points: Vec2[]; holes?: Vec2[][] }): boolean =>
   pointInRing(p, poly.points) && !(poly.holes ?? []).some((h) => pointInRing(p, h));
+
+/** Celdas transitables por barrido de filas (par-impar sobre todos los anillos): exacto y rápido. */
+export function rasterize(g: Pick<MapGeometry, 'walkable'>, cols: number, rows: number): Uint8Array {
+  const cells = new Uint8Array(cols * rows);
+  const rings = g.walkable.flatMap((p) => [p.points, ...(p.holes ?? [])]);
+  const xs: number[] = [];
+  for (let r = 0; r < rows; r++) {
+    const y = (r + 0.5) / rows;
+    xs.length = 0;
+    for (const ring of rings) {
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const a = ring[j];
+        const b = ring[i];
+        if (a.y > y !== b.y > y) xs.push(a.x + ((y - a.y) / (b.y - a.y)) * (b.x - a.x));
+      }
+    }
+    xs.sort((m, n) => m - n);
+    for (let k = 0; k + 1 < xs.length; k += 2) {
+      const c0 = Math.max(0, Math.ceil(xs[k] * cols - 0.5));
+      const c1 = Math.min(cols - 1, Math.floor(xs[k + 1] * cols - 0.5));
+      for (let c = c0; c <= c1; c++) cells[r * cols + c] = 1;
+    }
+  }
+  return cells;
+}

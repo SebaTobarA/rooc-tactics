@@ -1,5 +1,5 @@
 import type { MapGeometry, Vec2 } from '../types/index.ts';
-import { pointInPolygon } from './geometry.ts';
+import { pointInPolygon, rasterize } from './geometry.ts';
 
 /**
  * Terreno transitable: fichas, flechas y animaciones no pasan por el bosque.
@@ -7,10 +7,11 @@ import { pointInPolygon } from './geometry.ts';
  * así que sigue los retoques del editor de mapa.
  */
 
-const COLS = 176;
+// 300 columnas: lo bastante fina para no cerrar las aberturas angostas (las espirales de los altares de Vigrid).
+const COLS = 300;
 
 /** Celdas de holgura respecto del bosque: las rutas pasan por el centro de los senderos, no pegadas al borde. */
-const CLEARANCE = 3;
+const CLEARANCE = 5;
 
 interface Grid {
   cols: number;
@@ -32,8 +33,8 @@ function gridOf(g: MapGeometry, aspect: number): Grid {
   if (grid) return grid;
   const cols = COLS;
   const rows = Math.max(1, Math.round(COLS / aspect));
-  const cells = new Uint8Array(cols * rows);
-  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) cells[r * cols + c] = isWalkable({ x: (c + 0.5) / cols, y: (r + 0.5) / rows }, g) ? 1 : 0;
+  // Barrido de filas: el mismo resultado que probar cada celda contra los polígonos, mucho más rápido.
+  const cells = rasterize(g, cols, rows);
   const clear = new Uint8Array(cols * rows);
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
@@ -51,6 +52,12 @@ function gridOf(g: MapGeometry, aspect: number): Grid {
   grid = { cols, rows, cells, clear };
   grids.set(g, grid);
   return grid;
+}
+
+/** Grilla de celdas transitables (1) que usan las rutas; la comparte el relieve. */
+export function walkCells(g: MapGeometry, aspect: number): { cols: number; rows: number; cells: Uint8Array } {
+  const { cols, rows, cells } = gridOf(g, aspect);
+  return { cols, rows, cells };
 }
 
 const cellOf = (p: Vec2, grid: Grid) => ({
@@ -112,15 +119,17 @@ function segmentClear(a: Vec2, b: Vec2, ends: [Vec2, Vec2], g: MapGeometry, aspe
   const grid = gridOf(g, aspect);
   const steps = Math.max(2, Math.ceil(Math.hypot(b.x - a.x, (b.y - a.y) / aspect) * grid.cols * 2.5));
   const free = (CLEARANCE + 2) / grid.cols;
+  const at = (i: number) => ({ x: a.x + ((b.x - a.x) * i) / steps, y: a.y + ((b.y - a.y) * i) / steps });
+  // Primero solo la grilla (barato): descarta casi todos los tramos que no sirven.
   for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    const p = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
-    if (!isWalkable(p, g)) return false;
+    const p = at(i);
     const { c, r } = cellOf(p, grid);
+    if (!grid.cells[r * grid.cols + c]) return false;
     if (grid.clear[r * grid.cols + c]) continue;
-    const nearEnd = ends.some((e) => Math.hypot(e.x - p.x, (e.y - p.y) / aspect) < free);
-    if (!nearEnd) return false;
+    if (!ends.some((e) => Math.hypot(e.x - p.x, (e.y - p.y) / aspect) < free)) return false;
   }
+  // Después la prueba exacta contra los polígonos, solo para los tramos que pasaron.
+  for (let i = 0; i <= steps; i++) if (!isWalkable(at(i), g)) return false;
   return true;
 }
 

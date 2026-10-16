@@ -1,6 +1,7 @@
 import { memo, useMemo } from 'react';
-import { Circle, Group, Line, Path, Rect, Shape } from 'react-konva';
+import { Circle, Group, Image as KImage, Line, Path, Rect, Shape } from 'react-konva';
 import type { Context } from 'konva/lib/Context';
+import { hillshade } from '../../../lib/elevation.ts';
 import { scatterForest, mulberry32 } from '../../../lib/forest.ts';
 import { ringsToPath } from '../../../lib/geometry.ts';
 import { isWalkable } from '../../../lib/walk.ts';
@@ -102,6 +103,10 @@ export const MapShapes = memo(function MapShapes({ map, proj, onPick }: Props) {
     return out;
   }, [g, markerWorld, proj]);
 
+  // Relieve: mesetas y rampas sombreadas (solo en mapas con alturas, como los altares de Vigrid).
+  const relief = useMemo(() => hillshade(g, map.aspect), [g, map.aspect]);
+  const walkPath = useMemo(() => ringsToPath(g.walkable.flatMap((p) => [p.points, ...(p.holes ?? [])]), proj), [g.walkable, proj]);
+
   // Los agujeros de lo transitable son los brazos de las espirales: ahí van los muros de las ruinas.
   const wallPath = useMemo(() => ringsToPath(g.walkable.flatMap((p) => p.holes ?? []), proj), [g.walkable, proj]);
 
@@ -156,6 +161,11 @@ export const MapShapes = memo(function MapShapes({ map, proj, onPick }: Props) {
             </Group>
           );
         })}
+        {relief && (
+          <Group clipFunc={() => [new Path2D(walkPath), 'evenodd']} listening={false}>
+            <KImage image={relief} width={proj.w} height={proj.h} {...(proj.flipped ? { x: proj.w, y: proj.h, scaleX: -1, scaleY: -1 } : {})} />
+          </Group>
+        )}
         {/* Muros de ruinas: bloques de piedra a lo largo de los brazos de las espirales (solo en el bosque de Vale of Clash). */}
         {terrain === 'forest' && (
           <>

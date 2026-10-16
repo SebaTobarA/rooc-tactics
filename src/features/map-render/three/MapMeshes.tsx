@@ -2,6 +2,7 @@ import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { mulberry32, scatterClouds, scatterForest, wallBlocks } from '../../../lib/forest.ts';
+import { elevationAt, elevationOf } from '../../../lib/elevation.ts';
 import { pointInRing } from '../../../lib/geometry.ts';
 import type { Projection3 } from '../../../lib/projection.ts';
 import type { MapConfig, Polygon, Vec2 } from '../../../types/index.ts';
@@ -98,10 +99,27 @@ export const MapMeshes = memo(function MapMeshes({ map, proj }: Props) {
   const { geometry: g, style } = map;
   const terrain = style.terrain ?? 'forest';
   // Cañón y ruinas: sin árboles; el borde es un farallón de roca o un muro de piedra alrededor del contorno.
-  const rimHeight = terrain === 'canyon' ? 4.6 : 3;
+  const rimHeight = terrain === 'canyon' ? 5.6 : 3;
 
   const trees = useMemo(() => (terrain === 'forest' ? scatterForest(g, map.aspect, 46) : []), [g, map.aspect, terrain]);
   const ground = useMemo(() => buildGroundTexture(map, trees), [map, trees]);
+  // Suelo con relieve: las mesetas suben y los senderos que salen de ellas bajan en rampa.
+  const groundGeo = useMemo(() => {
+    const relief = elevationOf(g, map.aspect);
+    const segX = relief ? 260 : 1;
+    const segZ = relief ? Math.round(260 / map.aspect) : 1;
+    const plane = new THREE.PlaneGeometry(proj.w, proj.d, segX, segZ);
+    if (relief) {
+      const pos = plane.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        // Plano acostado (rotación -90° en X): y local = -z de mundo, z local = altura.
+        pos.setZ(i, elevationAt(g, map.aspect, { x: pos.getX(i) / proj.w + 0.5, y: -pos.getY(i) / proj.d + 0.5 }));
+      }
+      plane.computeVertexNormals();
+    }
+    return plane;
+  }, [g, map.aspect, proj]);
+  useEffect(() => () => groundGeo.dispose(), [groundGeo]);
   useEffect(() => () => ground.dispose(), [ground]);
 
   const geo = useMemo(() => {
@@ -189,8 +207,7 @@ export const MapMeshes = memo(function MapMeshes({ map, proj }: Props) {
       <mesh geometry={geo.slab} rotation-x={FLAT} position-y={-SLAB - 0.02}>
         <meshLambertMaterial color="#3b2f25" />
       </mesh>
-      <mesh rotation-x={FLAT}>
-        <planeGeometry args={[proj.w, proj.d]} />
+      <mesh rotation-x={FLAT} geometry={groundGeo}>
         <meshLambertMaterial map={ground} transparent alphaTest={0.5} />
       </mesh>
       {geo.rim && (
@@ -212,7 +229,7 @@ export const MapMeshes = memo(function MapMeshes({ map, proj }: Props) {
         const [x, z] = proj.toGround(c.center);
         const r = proj.len(c.radius);
         return (
-          <group key={c.id} position={[x, 0, z]}>
+          <group key={c.id} position={[x, elevationAt(g, map.aspect, c.center), z]}>
             {/* Plaza de piedra en dos escalones. */}
             <mesh position-y={0.1}>
               <cylinderGeometry args={[r * 1.06, r * 1.12, 0.2, 32]} />

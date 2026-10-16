@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { hillshade } from '../../../lib/elevation.ts';
 import { mulberry32, type Tree } from '../../../lib/forest.ts';
 import type { MapConfig, Vec2 } from '../../../types/index.ts';
 
@@ -97,6 +98,15 @@ export function buildGroundTexture(map: MapConfig, trees: Tree[]): THREE.CanvasT
     ctx.shadowOffsetY = 7 * k;
     ctx.lineWidth = 5 * k;
     ctx.stroke(shape);
+    // Rampas y mesetas: sombreado del relieve, recortado al sendero.
+    const shade3d = hillshade(g, map.aspect);
+    if (shade3d) {
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = ctx.shadowOffsetY = 0;
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(shade3d, 0, 0, W, H);
+    }
     ctx.restore();
   }
 

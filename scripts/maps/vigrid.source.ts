@@ -26,8 +26,10 @@ export interface VigridSource {
   clear: { x: number; y: number; r: number }[];
   /** Altura de las crestas o muros (unidades de la geometría). */
   obstacleHeight: number;
-  /** Plazas de piedra (px del minimapa, radio en px). */
-  plazas: { id: string; kind: 'center' | 'pillar' | 'respawn'; at: Vec2; r: number }[];
+  /** Plazas de piedra (px del minimapa, radio en px); con `height` son mesetas a las que se sube. */
+  plazas: { id: string; kind: 'center' | 'pillar' | 'respawn'; at: Vec2; r: number; height?: number }[];
+  /** Radio (en radios de la meseta) donde termina la rampa. */
+  rampReach?: number;
   /** Pares de puntos para llevar otras capturas al minimapa (mismos objetos en ambas). */
   frames?: Partial<Record<'spawns' | 'monsters', { from: Vec2; to: Vec2 }[]>>;
   markers: MarkerSeed[];
@@ -64,11 +66,14 @@ export const vigridField: VigridSource = {
     ...ALTARS_FIELD.map((p) => ({ ...p, r: 32 })),
     ...ENTRIES_FIELD.map((p) => ({ ...p, r: 30 })),
   ],
-  obstacleHeight: 3.6,
+  // Crestas de 3,3 m: las mesetas de los altares (2,5) asoman y sus muros quedan como un borde bajo.
+  obstacleHeight: 3.7,
+  // Los altares están sobre mesetas: se sube por la espiral que los rodea (vista 3D del juego).
+  rampReach: 2.6,
   plazas: [
-    { id: 'center', kind: 'center', at: { x: 590, y: 562 }, r: 70 },
+    { id: 'center', kind: 'center', at: { x: 590, y: 562 }, r: 70, height: 0.8 },
     ...ENTRIES_FIELD.map((p, i) => ({ id: `entry-${i + 1}`, kind: 'respawn' as const, at: p, r: 34 })),
-    ...ALTARS_FIELD.map((p, i) => ({ id: `altar-${i + 1}`, kind: 'pillar' as const, at: p, r: 40 })),
+    ...ALTARS_FIELD.map((p, i) => ({ id: `altar-${i + 1}`, kind: 'pillar' as const, at: p, r: 40, height: 2.8 })),
   ],
   frames: {
     // Captura de entradas y respawns: las 4 entradas.

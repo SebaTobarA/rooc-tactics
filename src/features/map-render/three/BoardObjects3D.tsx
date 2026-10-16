@@ -5,6 +5,7 @@ import { jobById } from '../../../config/jobs.ts';
 import { roleById } from '../../../config/roles.ts';
 import { tierRank } from '../../../config/modes/index.ts';
 import { lookOf } from '../../../config/objectiveKinds.ts';
+import { elevationAt } from '../../../lib/elevation.ts';
 import { resolvedStats, useScoringStore } from '../../../store/scoringStore.ts';
 import { useStrategyStore } from '../../../store/strategyStore.ts';
 import { zoneCenters, zoneOf, ZONE_KEYS } from '../../../lib/numpad.ts';
@@ -224,21 +225,23 @@ export const Markers3D = memo(function Markers3D({ map, proj, objectives, labelH
     <group>
       {map.markers.map((m) => {
         const [x, z] = proj.toGround(m.pos);
+        // Los marcadores se apoyan en el relieve (mesetas y rampas).
+        const lift = elevationAt(map.geometry, map.aspect, m.pos);
         const tier = objectives.find((o) => o.markerId === m.id)?.tier ?? m.tier;
         const value = stats.find((s) => s.id === tier)?.pillarTotal;
         const pillar = m.kind === 'central-pillar' || m.kind === 'pillar-slot';
         const bossValue = pillar ? null : objectiveValue(map.modeId, field, m.kind);
         const label = <Label text={`${m.label}${m.confirmed || pillar ? '' : ' (?)'} · Z${zoneOf(m.pos, map.numpad)}${pillar && value != null ? ` · ${value} ${unitShort}` : ''}${bossValue != null ? ` · ${(bossValue / 1000).toLocaleString('es')}k` : ''}`} position={[x, 0.3, z + 3]} height={labelHeight} />;
         if (lookOf(m)) {
-          return <group key={m.id}><Objective3D marker={m} objective={objectives.find((o) => o.markerId === m.id)} x={x} z={z} />{label}</group>;
+          return <group key={m.id} position-y={lift}><Objective3D marker={m} objective={objectives.find((o) => o.markerId === m.id)} x={x} z={z} />{label}</group>;
         }
         if (m.kind === 'central-pillar' || m.kind === 'pillar-slot') {
-          return <group key={m.id}><Pillar marker={m} objective={objectives.find((o) => o.markerId === m.id)} modeId={map.modeId} x={x} z={z} />{label}</group>;
+          return <group key={m.id} position-y={lift}><Pillar marker={m} objective={objectives.find((o) => o.markerId === m.id)} modeId={map.modeId} x={x} z={z} />{label}</group>;
         }
         if (m.kind === 'respawn') {
           const color = SIDE_COLORS[m.side ?? 'green'];
           return (
-            <group key={m.id}>
+            <group key={m.id} position-y={lift}>
               <group position={[x, 0.44, z]}>
                 {/* Plataforma de la guild con estandarte. */}
                 <mesh position-y={0.2}>
@@ -268,7 +271,7 @@ export const Markers3D = memo(function Markers3D({ map, proj, objectives, labelH
         }
         const color = m.kind === 'point-green' ? '#a3d93a' : '#a970e6';
         return (
-          <group key={m.id}>
+          <group key={m.id} position-y={lift}>
             <mesh position={[x, 0.2, z]}>
               <cylinderGeometry args={[1.1, 1.3, 0.4, 8]} />
               <meshLambertMaterial color="#b9c0c8" flatShading />
@@ -346,6 +349,7 @@ export const Tokens3D = memo(function Tokens3D({ tokens, proj, map, parties, rai
     <group>
       {tokens.map((t) => {
         const [x, z] = proj.toGround(t.pos);
+        const lift = elevationAt(map.geometry, map.aspect, t.pos);
         const job = jobById(t.jobId);
         const role = roleById(t.role);
         const ring = teamColor(t.team, allySide);
@@ -363,12 +367,12 @@ export const Tokens3D = memo(function Tokens3D({ tokens, proj, map, parties, rai
         });
         return (
           <group key={t.id}>
-            <mesh position={[x, 0.3, z]} rotation-x={FLAT} renderOrder={8}>
+            <mesh position={[x, 0.3 + lift, z]} rotation-x={FLAT} renderOrder={8}>
               <circleGeometry args={[1.2, 20]} />
               <meshBasicMaterial color={ring} transparent opacity={0.85} depthTest={false} />
             </mesh>
             {/* Billboard: el sprite siempre mira a la cámara. */}
-            <sprite position={[x, TOKEN_Y, z]} scale={[tokenSpriteSize(t), tokenSpriteSize(t), 1]} renderOrder={15}>
+            <sprite position={[x, TOKEN_Y + lift, z]} scale={[tokenSpriteSize(t), tokenSpriteSize(t), 1]} renderOrder={15}>
               <spriteMaterial map={texture} depthTest={false} transparent />
             </sprite>
           </group>
@@ -380,8 +384,23 @@ export const Tokens3D = memo(function Tokens3D({ tokens, proj, map, parties, rai
 
 // ---------- Dibujos ----------
 
-function Drawing3D({ d, proj, aspect, selected }: { d: Draft; proj: Projection3; aspect: number; selected: boolean }) {
-  const v = (p: Vec2): [number, number, number] => { const [x, z] = proj.toGround(p); return [x, DRAW_Y, z]; };
+/** Densifica una polilínea para que siga el relieve (rampas) en vez de atravesarlo. */
+function densify(points: Vec2[], step = 0.008): Vec2[] {
+  const out: Vec2[] = [];
+  points.forEach((p, i) => {
+    if (i > 0) {
+      const a = points[i - 1];
+      const n = Math.floor(Math.hypot(p.x - a.x, p.y - a.y) / step);
+      for (let k = 1; k < n; k++) out.push({ x: a.x + ((p.x - a.x) * k) / n, y: a.y + ((p.y - a.y) * k) / n });
+    }
+    out.push(p);
+  });
+  return out;
+}
+
+function Drawing3D({ d, proj, map, selected }: { d: Draft; proj: Projection3; map: MapConfig; selected: boolean }) {
+  const aspect = map.aspect;
+  const v = (p: Vec2): [number, number, number] => { const [x, z] = proj.toGround(p); return [x, DRAW_Y + elevationAt(map.geometry, aspect, p), z]; };
   const color = d.color;
   const width = d.width * 0.9 + (selected ? 2 : 0);
   const line = (pts: [number, number, number][]) => <Line points={pts} color={selected ? '#38bdf8' : color} lineWidth={width} depthTest={false} renderOrder={10} transparent />;
@@ -392,28 +411,28 @@ function Drawing3D({ d, proj, aspect, selected }: { d: Draft; proj: Projection3;
     const prev = d.tool === 'curve-arrow' ? (d.points.length === 3 ? d.points[1] : curveControl(d.points[0], end, aspect)) : d.points[d.points.length - 2];
     const [ex, ez] = proj.toGround(end);
     const [px, pz] = proj.toGround(prev);
-    return { ex, ez, angle: Math.atan2(ex - px, ez - pz) };
-  }, [d, proj, aspect]);
+    return { ex, ez, ey: DRAW_Y + elevationAt(map.geometry, aspect, end), angle: Math.atan2(ex - px, ez - pz) };
+  }, [d, proj, aspect, map.geometry]);
 
   switch (d.tool) {
     case 'pen':
     case 'line':
-      return d.points.length > 1 ? line(d.points.map(v)) : null;
+      return d.points.length > 1 ? line(densify(d.points).map(v)) : null;
     case 'arrow':
     case 'curve-arrow': {
       const [a, b] = [d.points[0], d.points[d.points.length - 1]];
       // Una flecha enrutada por los senderos trae puntos intermedios.
-      let pts = d.points.map(v);
+      let pts = densify(d.points).map(v);
       if (d.tool === 'curve-arrow') {
         const c = d.points.length === 3 ? d.points[1] : curveControl(a, b, aspect);
-        pts = new THREE.CatmullRomCurve3([a, c, b].map((p) => new THREE.Vector3(...v(p)))).getPoints(24).map((p) => [p.x, p.y, p.z]);
+        pts = new THREE.CatmullRomCurve3([a, c, b].map((p) => new THREE.Vector3(...v(p)))).getPoints(24).map((p) => [p.x, DRAW_Y + elevationAt(map.geometry, aspect, proj.toNorm(p.x, p.z)), p.z]);
       }
       const size = 0.45 + d.width * 0.14;
       return (
         <>
           {line(pts)}
           {head && (
-            <mesh position={[head.ex, DRAW_Y, head.ez]} rotation={[FLAT, 0, head.angle + Math.PI]} renderOrder={10}>
+            <mesh position={[head.ex, head.ey, head.ez]} rotation={[FLAT, 0, head.angle + Math.PI]} renderOrder={10}>
               <coneGeometry args={[size, size * 2, 3]} />
               <meshBasicMaterial color={color} depthTest={false} />
             </mesh>
@@ -453,12 +472,12 @@ function Drawing3D({ d, proj, aspect, selected }: { d: Draft; proj: Projection3;
     }
     case 'text': {
       const p = v(d.points[0]);
-      return <Label text={d.text ?? ''} position={[p[0], 1.6, p[2]]} color={selected ? '#38bdf8' : color} height={1.2 + d.width * 0.25} />;
+      return <Label text={d.text ?? ''} position={[p[0], p[1] + 1, p[2]]} color={selected ? '#38bdf8' : color} height={1.2 + d.width * 0.25} />;
     }
     case 'ping': {
       const p = v(d.points[0]);
       return (
-        <sprite position={[p[0], 2.2, p[2]]} scale={[3.6, 3.6, 1]} renderOrder={12}>
+        <sprite position={[p[0], p[1] + 1.6, p[2]]} scale={[3.6, 3.6, 1]} renderOrder={12}>
           <spriteMaterial map={pingTexture(color, selected)} depthTest={false} transparent />
         </sprite>
       );
@@ -470,15 +489,15 @@ interface DrawingsProps {
   drawings: Drawing[];
   draft: Draft | null;
   proj: Projection3;
-  aspect: number;
+  map: MapConfig;
   selection: string[];
 }
 
-export const Drawings3D = memo(function Drawings3D({ drawings, draft, proj, aspect, selection }: DrawingsProps) {
+export const Drawings3D = memo(function Drawings3D({ drawings, draft, proj, map, selection }: DrawingsProps) {
   return (
     <group>
-      {drawings.map((d) => <Drawing3D key={d.id} d={d} proj={proj} aspect={aspect} selected={selection.includes(d.id)} />)}
-      {draft && <Drawing3D d={draft} proj={proj} aspect={aspect} selected={false} />}
+      {drawings.map((d) => <Drawing3D key={d.id} d={d} proj={proj} map={map} selected={selection.includes(d.id)} />)}
+      {draft && <Drawing3D d={draft} proj={proj} map={map} selected={false} />}
     </group>
   );
 });
